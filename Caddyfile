@@ -1,0 +1,27 @@
+# Replace with your domain
+app.indiefilmer.com {
+	# Serve static public files directly (sw.js, icons, offline.html, manifest)
+	# This avoids Next.js standalone redirecting these requests
+	root * /app/public
+	@staticPwa path /sw.js /offline.html /manifest.webmanifest /icons/*
+	handle @staticPwa {
+		header /sw.js Cache-Control "no-cache, no-store, must-revalidate"
+		header /sw.js Content-Type "application/javascript; charset=utf-8"
+		file_server
+	}
+
+	# Everything else goes to Next.js
+	handle {
+		reverse_proxy localhost:3001
+	}
+
+	# Security headers (supplement those set by Next.js)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+	}
+
+	# Gzip compression
+	encode gzip
+}

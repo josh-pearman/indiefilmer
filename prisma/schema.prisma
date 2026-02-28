@@ -1,0 +1,618 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ──────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  username     String?  @unique
+  passwordHash String?
+  name         String?
+  approved     Boolean  @default(false)
+  siteRole     String   @default("user") // "superadmin" | "user"
+  colorTheme   String   @default("light")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships ProjectMember[]
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String   @default("Untitled Project")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members         ProjectMember[]
+  invites         Invite[]
+  settings        ProjectSettings?
+  scriptVersions  ScriptVersion[]
+  castMembers     CastMember[]
+  crewMembers     CrewMember[]
+  scenes          Scene[]
+  locations        Location[]
+  shootDays       ShootDay[]
+  cateringDays    CateringDay[]
+  gearModels      GearModel[]
+  budgetBuckets   BudgetBucket[]
+  budgetLineItems BudgetLineItem[]
+  notes           Note[]
+  tasks           Task[]
+
+  vaultFiles      VaultFile[]
+  auditLogs       AuditLog[]
+}
+
+model ProjectMember {
+  id              String   @id @default(cuid())
+  userId          String
+  projectId       String
+  role            String   @default("collaborator") // "admin" | "collaborator"
+  allowedSections String   @default("[]")
+  createdAt       DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+}
+
+model ProjectSettings {
+  id              String  @id @default(cuid())
+  projectId       String  @unique
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  totalBudget            Float   @default(10000)
+  projectName            String  @default("Untitled Project")
+  currencySymbol         String  @default("$")
+  craftyPerPerson        Float   @default(5)
+  lunchPerPerson         Float   @default(12)
+  dinnerPerPerson        Float   @default(12)
+  craftyEnabledByDefault Boolean @default(true)
+  lunchEnabledByDefault  Boolean @default(true)
+  dinnerEnabledByDefault Boolean @default(false)
+
+  intakeEmailSubject String?
+  intakeEmailBody    String?
+}
+
+model LoginCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ─── Invites ─────────────────────────────────────────────
+
+model Invite {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  email           String
+  token           String   @unique
+  role            String   @default("collaborator") // "admin" | "collaborator"
+  allowedSections String   @default("[]")           // JSON string array of section keys
+  expiresAt       DateTime
+  accepted        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+// ─── Script Hub ───────────────────────────────────────────
+
+model ScriptVersion {
+  id           String   @id @default(cuid())
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionName  String              // "Draft 1", "Pink Revisions", etc. (display: version label)
+  filePath     String              // path relative to data/uploads/{projectId}/scripts/
+  fileName     String?             // original filename for display/download
+  pageCount    Int?
+  notes        String?
+  isCurrent    Boolean  @default(false)  // only one should be true at a time
+  isDeleted    Boolean  @default(false)
+  uploadedBy   String?             // username of uploader
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Cast & Roles ─────────────────────────────────────────
+
+model CastMember {
+  id           String   @id @default(cuid())
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name         String
+  roleName     String?
+  actorName    String?   // The real actor/actress cast in this role
+  castingLink  String?
+  status       String   @default("TBD")       // Confirmed, Pending, Backup, TBD
+  phone        String?
+  email        String?
+  includePhoneOnCallSheet Boolean @default(false)
+  includeEmailOnCallSheet Boolean @default(false)
+  emergencyContactName    String?
+  emergencyContactPhone   String?
+  emergencyContactRelation String?
+  dietaryRestrictions     String?
+  intakeToken             String?  @unique
+  intakeTokenExpiresAt    DateTime?
+  notes        String?
+  rate         Float?
+  days         Float?
+  flatFee      Float?
+  plannedAmount Float?
+  budgetBucket String?                         // FK-like reference to bucket name
+  isDeleted    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sceneAssignments SceneCast[]
+}
+
+// ─── Crew ─────────────────────────────────────────────────
+
+model CrewMember {
+  id           String   @id @default(cuid())
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name         String
+  position     String                          // DP, Sound, Gaffer, PA, etc.
+  phone        String?
+  email        String?
+  includePhoneOnCallSheet Boolean @default(false)
+  includeEmailOnCallSheet Boolean @default(false)
+  emergencyContactName    String?
+  emergencyContactPhone   String?
+  emergencyContactRelation String?
+  dietaryRestrictions     String?
+  intakeToken             String?  @unique
+  intakeTokenExpiresAt    DateTime?
+  notes        String?
+  status       String   @default("TBD")       // Confirmed, Pending, TBD
+  rate         Float?
+  days         Float?
+  flatFee      Float?
+  plannedAmount Float?
+  budgetBucket String?
+  isDeleted    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  shootDayCrew ShootDayCrew[]
+  callSheetCrew CallSheetCrew[]
+}
+
+// ─── Scenes ───────────────────────────────────────────────
+
+model Scene {
+  id            String   @id @default(cuid())
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sceneNumber   String
+  title         String?
+  intExt        String?                        // INT, EXT
+  dayNight      String?                        // DAY, NIGHT
+  pageCount     Float?
+  synopsis      String?
+  shotlistPath  String?                        // File path to uploaded shotlist
+  locationId    String?
+  location      Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tags             SceneTag[]
+  castAssignments  SceneCast[]
+  shootDayScenes   ShootDayScene[]
+}
+
+model SceneTag {
+  id      String @id @default(cuid())
+  sceneId String
+  scene   Scene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  tag     String                               // sound_risk, permit_risk, stunts, intimacy, vfx, special_props, crowd, night_ext
+}
+
+model SceneCast {
+  id           String     @id @default(cuid())
+  sceneId      String
+  scene        Scene      @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  castMemberId String
+  castMember   CastMember @relation(fields: [castMemberId], references: [id], onDelete: Cascade)
+}
+
+// ─── Locations ────────────────────────────────────────────
+
+model Location {
+  id              String   @id @default(cuid())
+  projectId       String?
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  providerType    String?                      // Peerspace, Giggster, Other
+  providerLink    String?
+  status          String   @default("Shortlist") // Shortlist, Contacted, Visited, On Hold, Booked, Rejected
+  estimatedCostPerDay Float?
+  numberOfDays    Float?
+  fees            Float?
+  costNotes       String?
+  plannedAmount   Float?
+  budgetBucket    String?
+  selectedVenueId String?  @unique
+  notes           String?
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scenes       Scene[]
+  shootDays    ShootDay[]
+  files        LocationFile[]
+  venues       LocationVenue[] @relation("LocationVenues")
+  selectedVenue LocationVenue? @relation("LocationSelectedVenue", fields: [selectedVenueId], references: [id], onDelete: SetNull)
+}
+
+model LocationFile {
+  id        String   @id @default(cuid())
+  locationId String
+  location  Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  venueId   String?
+  venue     LocationVenue? @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  filePath  String
+  fileName  String
+  createdAt DateTime @default(now())
+}
+
+model LocationVenue {
+  id                 String    @id @default(cuid())
+  locationId         String
+  location           Location  @relation("LocationVenues", fields: [locationId], references: [id], onDelete: Cascade)
+  label              String
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  providerType       String?
+  providerLink       String?
+  estimatedCostPerDay Float?
+  numberOfDays       Float?
+  fees               Float?
+  costNotes          String?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  files              LocationFile[]
+  selectedByLocation Location? @relation("LocationSelectedVenue")
+}
+
+// ─── Schedule ─────────────────────────────────────────────
+
+model ShootDay {
+  id           String   @id @default(cuid())
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date         DateTime
+  callTime     String?
+  locationId   String?
+  location     Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  status       String   @default("Planned")   // Planned, Shooting, Wrapped
+  meals        Float?
+  transport    Float?
+  misc         Float?
+  budgetBucket String?
+  notes        String?
+  isDeleted    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  scenes ShootDayScene[]
+  mealsList ShootDayMeal[]
+  gearItemDays GearItemDay[]
+  crewMembers ShootDayCrew[]
+  callSheet  CallSheet?
+  linkedCateringDay CateringDay?
+}
+
+model ShootDayMeal {
+  id              String   @id @default(cuid())
+  shootDayId      String
+  shootDay        ShootDay @relation(fields: [shootDayId], references: [id], onDelete: Cascade)
+  mealType        String                     // "crafty", "lunch", "dinner"
+  enabled         Boolean  @default(true)
+  vendor          String?
+  estimatedCost   Float?
+  actualCost      Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([shootDayId, mealType])
+}
+
+model ShootDayScene {
+  id         String   @id @default(cuid())
+  shootDayId String
+  shootDay   ShootDay @relation(fields: [shootDayId], references: [id], onDelete: Cascade)
+  sceneId    String
+  scene      Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  @@unique([shootDayId, sceneId])
+}
+
+model ShootDayCrew {
+  id           String   @id @default(cuid())
+  shootDayId   String
+  shootDay     ShootDay @relation(fields: [shootDayId], references: [id], onDelete: Cascade)
+  crewMemberId String
+  crewMember   CrewMember @relation(fields: [crewMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([shootDayId, crewMemberId])
+}
+
+// ─── Catering Days (standalone meal planning) ─────────────
+
+model CateringDay {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date         DateTime?                       // null = TBD
+  label        String                          // "Rehearsal", "Wrap Party", etc.
+  locationName String?
+  headcount    Int      @default(0)
+  shootDayId   String?  @unique               // optional link to a ShootDay
+  shootDay     ShootDay? @relation(fields: [shootDayId], references: [id], onDelete: SetNull)
+  isDeleted    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  meals CateringDayMeal[]
+}
+
+model CateringDayMeal {
+  id            String      @id @default(cuid())
+  cateringDayId String
+  cateringDay   CateringDay @relation(fields: [cateringDayId], references: [id], onDelete: Cascade)
+  mealType      String                        // "crafty", "lunch", "dinner"
+  enabled       Boolean     @default(true)
+  vendor        String?
+  estimatedCost Float?
+  actualCost    Float?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([cateringDayId, mealType])
+}
+
+// ─── Gear (scenario modeling) ─────────────────────────────
+
+model GearModel {
+  id            String   @id @default(cuid())
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String
+  isActive      Boolean  @default(false)
+  plannedAmount Float?
+  sortOrder     Int      @default(0)
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items GearItem[]
+}
+
+model GearItem {
+  id          String   @id @default(cuid())
+  gearModelId String
+  gearModel   GearModel @relation(fields: [gearModelId], references: [id], onDelete: Cascade)
+  name        String   @default("")
+  category    String   @default("Other")
+  costAmount  Float    @default(0)
+  costType    String   @default("per_day")
+  supplier    String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  daySelections GearItemDay[]
+}
+
+model GearItemDay {
+  id         String   @id @default(cuid())
+  gearItemId String
+  gearItem   GearItem @relation(fields: [gearItemId], references: [id], onDelete: Cascade)
+  shootDayId String
+  shootDay   ShootDay @relation(fields: [shootDayId], references: [id], onDelete: Cascade)
+  selected   Boolean  @default(true)
+
+  @@unique([gearItemId, shootDayId])
+}
+
+// ─── Budget ───────────────────────────────────────────────
+
+model BudgetBucket {
+  id             String   @id @default(cuid())
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name           String   // Locations, Food, Gear, Talent, Crew, Transport, Post, Misc
+  plannedAmount  Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lineItems BudgetLineItem[]
+}
+
+model BudgetLineItem {
+  id             String   @id @default(cuid())
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bucketId       String
+  bucket         BudgetBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  description    String
+  plannedAmount  Float?
+  actualAmount   Float    @default(0)
+  date           DateTime?
+  notes          String?
+  receiptPath    String?
+  sourceType     String?                       // location, shootDay, cast, crew
+  sourceId       String?
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ─── Notes ────────────────────────────────────────────────
+
+model Note {
+  id        String     @id @default(cuid())
+  projectId String?
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  category  String?
+  body      String?
+  isDeleted Boolean    @default(false)
+  createdBy String?              // username of creator
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  files     NoteFile[]
+  links     NoteLink[]
+}
+
+model NoteFile {
+  id        String   @id @default(cuid())
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  filePath  String              // filename under data/uploads/notes/
+  fileName  String              // original filename
+  createdAt DateTime @default(now())
+}
+
+model NoteLink {
+  id        String   @id @default(cuid())
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  label     String              // user-provided display name
+  url       String              // the actual URL
+  createdAt DateTime @default(now())
+}
+
+// ─── Tasks ────────────────────────────────────────────────
+
+model Task {
+  id               String     @id @default(cuid())
+  projectId        String?
+  project          Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title            String
+  owner            String?          // username or null (unassigned)
+  status           String     @default("Todo")    // Todo, Doing, Done
+  priority         String     @default("none")   // urgent, high, medium, low, none
+  category         String?                       // camera, sound, art, locations, permits, post, general
+  position         Float      @default(0)        // manual ordering within a column
+  dueDate          DateTime?
+  notes            String?
+  sourceNoteId     String?          // if created via "Convert to Task" from a Note
+  sourceEntityType String?          // "CastMember", "CrewMember", "Location"
+  sourceEntityId   String?          // ID of the linked entity
+  isDeleted        Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  files            TaskFile[]
+  links            TaskLink[]
+}
+
+model TaskFile {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  filePath  String              // filename under data/uploads/tasks/
+  fileName  String              // original filename
+  createdAt DateTime @default(now())
+}
+
+model TaskLink {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label     String              // user-provided display name
+  url       String              // the actual URL
+  createdAt DateTime @default(now())
+}
+
+
+// ─── Files & Links Vault ──────────────────────────────────
+
+model VaultFile {
+  id        String   @id @default(cuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fileName  String
+  filePath  String
+  category  String   @default("Other")        // Script, Lookbook, Releases, Storyboards, References, Receipts, Other
+  notes     String?
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Call Sheet (per Shoot Day) ─────────────────────────────
+
+model CallSheet {
+  id               String   @id @default(cuid())
+  shootDayId       String   @unique
+  shootDay         ShootDay @relation(fields: [shootDayId], references: [id], onDelete: Cascade)
+
+  generalCallTime  String?
+  announcements    String?
+  weatherSummary   String?
+  sunrise          String?  // e.g. "6:42 AM"
+  sunset           String?  // e.g. "5:58 PM"
+  nearestHospital  String?
+  emergencyContact String?
+  personalCallTimes String?  // JSON array (cast only)
+  mapImageUrl      String?  // Google Maps Static API URL for location map
+
+  crew CallSheetCrew[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model CallSheetCrew {
+  id          String   @id @default(cuid())
+  callSheetId String
+  crewId      String
+  callTime    String?  // individual call time override
+  createdAt   DateTime @default(now())
+
+  callSheet CallSheet   @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
+  crew     CrewMember   @relation(fields: [crewId], references: [id], onDelete: Cascade)
+
+  @@unique([callSheetId, crewId])
+}
+
+// ─── Audit Log ────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  action      String                           // create, update, delete, restore
+  entityType  String                           // ScriptVersion, CastMember, Scene, etc.
+  entityId    String
+  before      String?                          // JSON snapshot
+  after       String?                          // JSON snapshot
+  changeNote  String?
+  performedBy String?
+  createdAt   DateTime @default(now())
+}

@@ -1,0 +1,30 @@
+# Dependencies & build
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+
+# Environment & data
+.env
+.env.*
+!.env.example
+data/
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+*.code-workspace
+.cursor/
+.claude/
+
+# Internal docs
+shipping/
+docs/
+
+# Tests
+e2e/
+playwright.config.ts
+QUICKSTART-TEST.md

@@ -1,0 +1,85 @@
+services:
+  # ── App ───────────────────────────────────────────────────
+  # SQLite (default):  docker compose up
+  # Postgres:          docker compose --profile postgres up
+  #   (set DATABASE_URL in .env to point at the db service)
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-file:../data/db.sqlite}
+      - AUTH_MODE=${AUTH_MODE:-password}
+      - CHAT_MODE=${CHAT_MODE:-off}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-}
+      - SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - APP_URL=${APP_URL:-http://localhost:3001}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── SQLite backup (only with --profile backup) ────────────
+  # Usage: docker compose --profile backup up -d
+  backup:
+    image: alpine:3.20
+    restart: unless-stopped
+    profiles: ["backup"]
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - ./data:/data:ro
+      - ./backups:/backups
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    environment:
+      - DB_PATH=/data/db.sqlite
+      - BACKUP_DIR=/backups
+      - KEEP_DAILY=${KEEP_DAILY:-7}
+      - KEEP_WEEKLY=${KEEP_WEEKLY:-4}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_PREFIX=${BACKUP_S3_PREFIX:-backups/}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        apk add --no-cache sqlite gzip
+        # Write crontab: run backup daily at 2 AM UTC
+        echo "0 2 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" | crontab -
+        echo "Backup cron installed (daily at 02:00 UTC). Running initial backup..."
+        /usr/local/bin/backup.sh
+        crond -f -l 2
+
+  # ── Postgres (only with --profile postgres) ───────────────
+  # When using Postgres, set in your .env:
+  #   DATABASE_URL=postgresql://indiefilmer:changeme@db:5432/indiefilmer
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    profiles: ["postgres"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-indiefilmer}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-indiefilmer}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-indiefilmer}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

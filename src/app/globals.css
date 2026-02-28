@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+}
+
+[data-theme="dark"] {
+  --background: #1e1e1e;
+  --foreground: #e4e4e7;
+  --border: #3f3f46;
+  --input: #3f3f46;
+  --ring: #60a5fa;
+  --primary: #60a5fa;
+  --primary-foreground: #18181b;
+  --secondary: #2d2d2d;
+  --secondary-foreground: #e4e4e7;
+  --muted: #2d2d2d;
+  --muted-foreground: #a1a1aa;
+  --accent: #2d2d2d;
+  --accent-foreground: #e4e4e7;
+  --card: #2d2d2d;
+  --card-foreground: #e4e4e7;
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: #e4e4e7;
+  --popover: #2d2d2d;
+  --popover-foreground: #e4e4e7;
+}
+
+
+[data-theme="warm"] {
+  --background: #faf7f2;
+  --foreground: #3d2e1e;
+  --border: #d4c5b0;
+  --input: #d4c5b0;
+  --ring: #b45309;
+  --primary: #b45309;
+  --primary-foreground: #faf7f2;
+  --secondary: #f5f0e8;
+  --secondary-foreground: #3d2e1e;
+  --muted: #f5f0e8;
+  --muted-foreground: #6b5744;
+  --accent: #f5f0e8;
+  --accent-foreground: #3d2e1e;
+  --card: #f5f0e8;
+  --card-foreground: #3d2e1e;
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: #faf7f2;
+  --popover: #f5f0e8;
+  --popover-foreground: #3d2e1e;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  @apply antialiased;
+}
+
+a {
+  color: var(--primary);
+}
+
+input,
+textarea,
+select {
+  background-color: var(--background);
+  border-color: var(--input);
+}
+
+input:focus,
+textarea:focus {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* TipTap composer styles */
+.tiptap-composer {
+  outline: none;
+  min-height: 6rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tiptap-composer p {
+  margin: 0;
+}
+
+.tiptap-composer p + p {
+  margin-top: 0.5em;
+}
+
+.tiptap-composer p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap-composer img {
+  width: 100%;
+  max-width: 36rem;
+  border-radius: 0.375rem;
+  margin: 0.5rem 0;
+}
+
+.tiptap-composer img[data-size="small"] {
+  max-width: 10rem;
+}
+
+.tiptap-composer img[data-size="medium"] {
+  max-width: 20rem;
+}
+
+.tiptap-composer img[data-size="large"] {
+  max-width: 36rem;
+}
+
+.tiptap-composer .ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Docs theme — scoped clean palette independent of app theme */
+.docs-theme {
+  --background: #ffffff;
+  --foreground: #111827;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #2563eb;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f9fafb;
+  --secondary-foreground: #111827;
+  --muted: #f9fafb;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  color: #111827;
+}
+
+.docs-theme a {
+  color: inherit;
+}
+
+/* Chat typing indicator */
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+
+@media print {
+  nav,
+  .sidebar,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  main {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+  }
+
+  body {
+    background: white;
+    color: black;
+    font-size: 11pt;
+  }
+
+  .call-sheet {
+    break-inside: avoid;
+  }
+
+  table {
+    border-collapse: collapse;
+  }
+
+  .call-sheet td,
+  .call-sheet th {
+    border: 1px solid #333;
+    padding: 4px 8px;
+  }
+
+  .craft-services-grid-print {
+    overflow: visible !important;
+  }
+}
+
