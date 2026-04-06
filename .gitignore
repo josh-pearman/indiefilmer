@@ -22,7 +22,7 @@ Thumbs.db
 
 # Internal docs
 shipping/
-docs/
+/docs/
 
 # Tests
 e2e/
