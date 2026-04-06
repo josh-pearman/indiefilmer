@@ -60,6 +60,39 @@ export async function approveUser(userId: string): Promise<{ error?: string }> {
   return {};
 }
 
+export async function preApproveEmail(email: string): Promise<{ error?: string }> {
+  await requireSuperadmin();
+
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed || !trimmed.includes("@")) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: trimmed } });
+  if (existing) {
+    if (existing.approved) return { error: "This email is already approved." };
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { approved: true }
+    });
+  } else {
+    await prisma.user.create({
+      data: { email: trimmed, approved: true }
+    });
+  }
+
+  await logAudit({
+    action: "create",
+    entityType: "User",
+    entityId: trimmed,
+    changeNote: "Email pre-approved for access",
+    performedBy: await getPerformedBy()
+  });
+
+  revalidatePath("/admin");
+  return {};
+}
+
 export async function rejectUser(userId: string): Promise<{ error?: string }> {
   await requireSuperadmin();
 

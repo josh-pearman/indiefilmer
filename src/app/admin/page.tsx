@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { listPendingUsers } from "@/actions/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApproveRejectButtons } from "@/components/admin/approve-reject-buttons";
+import { PreApproveForm } from "@/components/admin/pre-approve-form";
 import Link from "next/link";
 
 export default async function AdminPage() {
@@ -36,6 +37,18 @@ export default async function AdminPage() {
           Users who signed up and are waiting for approval.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pre-approve email</CardTitle>
+          <p className="text-sm font-normal text-muted-foreground">
+            Add an email address so they can log in immediately.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <PreApproveForm />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
