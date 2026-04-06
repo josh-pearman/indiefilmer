@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !user.approved) {
+    return NextResponse.json(
+      { error: "This email is not on the approved list. Email josh@indiefilmer.win to request access." },
+      { status: 403 }
+    );
+  }
+
   const code = generateCode();
   const expiresAt = new Date(Date.now() + CODE_EXPIRY_MINUTES * 60 * 1000);
 

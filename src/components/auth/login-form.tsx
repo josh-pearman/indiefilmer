@@ -24,7 +24,14 @@ export function LoginForm({ authMode }: LoginFormProps) {
         <div>
           <h1 className="text-xl font-semibold">Sign in to indieFilmer</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your email and we&apos;ll send you a one-time code.
+            We&apos;re currently only accepting pre-approved emails. Enter yours below to receive a login code.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Want access? Email{" "}
+            <a href="mailto:josh@indiefilmer.win" className="text-primary underline hover:no-underline">
+              josh@indiefilmer.win
+            </a>{" "}
+            to request an invite.
           </p>
         </div>
         <EmailLoginForm />
