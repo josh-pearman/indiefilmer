@@ -413,14 +413,3 @@ CREATE UNIQUE INDEX "CallSheet_shootDayId_key" ON "CallSheet"("shootDayId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CallSheetCrew_callSheetId_crewId_key" ON "CallSheetCrew"("callSheetId", "crewId");
-
-┌─────────────────────────────────────────────────────────┐
-│  Update available 5.22.0 -> 7.6.0                       │
-│                                                         │
-│  This is a major update - please follow the guide at    │
-│  https://pris.ly/d/major-version-upgrade                │
-│                                                         │
-│  Run the following to update                            │
-│    npm i --save-dev prisma@latest                       │
-│    npm i @prisma/client@latest                          │
-└─────────────────────────────────────────────────────────┘
