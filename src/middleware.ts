@@ -96,6 +96,13 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
+  // Superadmin can access /admin and /settings without a project
+  if (data.siteRole === "superadmin" && (pathname.startsWith("/admin") || pathname.startsWith("/settings"))) {
+    const res = NextResponse.next();
+    res.headers.set("x-pathname", pathname);
+    return res;
+  }
+
   const projectId = request.cookies.get(PROJECT_COOKIE_NAME)?.value;
   const memberCookie = request.cookies.get(PROJECT_MEMBER_COOKIE_NAME)?.value;
   if (!projectId || !memberCookie) {
