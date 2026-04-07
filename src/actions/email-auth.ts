@@ -7,6 +7,7 @@ import { setSessionCookie, getPerformedBy } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS } from "@/lib/constants";
+import { getUserProjectIds } from "@/lib/project";
 
 const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
 
@@ -78,8 +79,13 @@ export async function verifyCode(
     performedBy: await getPerformedBy()
   });
 
-  if (user.approved) {
-    redirect("/");
+  if (!user.approved) {
+    redirect("/pending");
   }
-  redirect("/pending");
+
+  const projectIds = await getUserProjectIds(user.id);
+  if (projectIds.length === 0) {
+    redirect("/projects/new");
+  }
+  redirect("/");
 }

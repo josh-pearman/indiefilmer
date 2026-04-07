@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import { getSessionUser } from "@/lib/auth";
+import { getCurrentProjectId, getUserProjectIds } from "@/lib/project";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +47,18 @@ const departments = [
   },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const userId = await getSessionUser();
+  if (!userId) redirect("/login");
+
+  const projectId = await getCurrentProjectId();
+  if (!projectId) {
+    const projectIds = await getUserProjectIds(userId);
+    if (projectIds.length === 0) redirect("/projects/new");
+    if (projectIds.length === 1) redirect(`/api/project/select?id=${projectIds[0]}`);
+    redirect("/projects");
+  }
+
   return (
     <div className="space-y-6">
       <div>
