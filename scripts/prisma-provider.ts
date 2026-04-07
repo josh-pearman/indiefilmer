@@ -12,6 +12,9 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import path from "path";
+import { config } from "dotenv";
+
+config({ path: path.resolve(__dirname, "../.env") });
 
 const SCHEMA_PATH = path.resolve(__dirname, "../prisma/schema.prisma");
 
