@@ -80,7 +80,7 @@ export default async function RootLayout({
   const [project, settings, user, projectMember, sceneCount] = await Promise.all([
     projectId ? prisma.project.findUnique({ where: { id: projectId }, select: { name: true } }) : null,
     projectId ? prisma.projectSettings.findUnique({ where: { projectId } }) : null,
-    userId ? prisma.user.findUnique({ where: { id: userId }, select: { colorTheme: true, name: true, username: true } }) : null,
+    userId ? prisma.user.findUnique({ where: { id: userId }, select: { colorTheme: true, name: true, username: true, email: true } }) : null,
     projectId && userId
       ? prisma.projectMember.findUnique({
           where: { userId_projectId: { userId, projectId } },
@@ -92,7 +92,7 @@ export default async function RootLayout({
 
   const projectName = settings?.projectName ?? project?.name ?? "Untitled Project";
   const theme = user?.colorTheme ?? "light";
-  const displayName = user?.name ?? user?.username ?? null;
+  const displayName = user?.name ?? user?.username ?? user?.email ?? null;
 
   const authPages = ["/login", "/setup", "/signup", "/verify", "/pending", "/docs"];
   const isAuthPage = authPages.some((p) => pathname.startsWith(p));

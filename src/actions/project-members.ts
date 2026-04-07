@@ -29,13 +29,15 @@ async function requireProjectAdmin(): Promise<string> {
 /** List users that can be added to the project (approved, not already members). */
 export async function listUsersAvailableToAdd() {
   const projectId = await requireProjectAdmin();
+  const userId = await getSessionUser();
   const existing = await prisma.projectMember.findMany({
     where: { projectId },
     select: { userId: true }
   });
-  const existingIds = new Set(existing.map((m) => m.userId));
+  const excludeIds = new Set(existing.map((m) => m.userId));
+  if (userId) excludeIds.add(userId);
   const users = await prisma.user.findMany({
-    where: { approved: true, id: { notIn: [...existingIds] } },
+    where: { approved: true, id: { notIn: [...excludeIds] } },
     select: { id: true, name: true, username: true, email: true }
   });
   return users;
