@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3001",
+    "prebuild": "tsx scripts/prisma-provider.ts && prisma generate",
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint .",

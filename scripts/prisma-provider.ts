@@ -1,16 +1,13 @@
 /**
  * Prisma provider switcher.
  *
- * Reads DATABASE_PROVIDER env var (default: "sqlite") and patches
- * prisma/schema.prisma to use the correct provider and URL before
- * running `prisma generate` or `prisma migrate`.
+ * Auto-detects the correct provider from DATABASE_URL:
+ *   - Starts with "postgresql://" or "postgres://" → postgresql
+ *   - Everything else (including "file:...") → sqlite
  *
- * Usage:
- *   DATABASE_PROVIDER=postgresql tsx scripts/prisma-provider.ts
- *   npx prisma generate
+ * Can be overridden with DATABASE_PROVIDER env var.
  *
- * This is a build-time concern — the Dockerfile for the subscription
- * service runs this before `prisma generate && npm run build`.
+ * Runs automatically before `npm run build` via the prebuild hook.
  */
 
 import { readFileSync, writeFileSync } from "fs";
@@ -18,28 +15,25 @@ import path from "path";
 
 const SCHEMA_PATH = path.resolve(__dirname, "../prisma/schema.prisma");
 
-const provider = (process.env.DATABASE_PROVIDER ?? "sqlite").toLowerCase();
+function detectProvider(): "sqlite" | "postgresql" {
+  const explicit = process.env.DATABASE_PROVIDER?.toLowerCase();
+  if (explicit === "sqlite" || explicit === "postgresql") return explicit;
 
-if (provider !== "sqlite" && provider !== "postgresql") {
-  console.error(`Invalid DATABASE_PROVIDER: "${provider}". Must be "sqlite" or "postgresql".`);
-  process.exit(1);
+  const url = process.env.DATABASE_URL ?? "";
+  if (url.startsWith("postgresql://") || url.startsWith("postgres://")) {
+    return "postgresql";
+  }
+  return "sqlite";
 }
+
+const provider = detectProvider();
 
 const schema = readFileSync(SCHEMA_PATH, "utf-8");
 
-let updated: string;
-if (provider === "postgresql") {
-  updated = schema.replace(
-    /datasource db \{[^}]+\}/,
-    `datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}`
-  );
-  console.log("Prisma schema patched: provider = postgresql, url = env(DATABASE_URL)");
-} else {
-  updated = schema.replace(
-    /datasource db \{[^}]+\}/,
-    `datasource db {\n  provider = "sqlite"\n  url      = env("DATABASE_URL")\n}`
-  );
-  console.log("Prisma schema patched: provider = sqlite, url = env(DATABASE_URL)");
-}
+const updated = schema.replace(
+  /datasource db \{[^}]+\}/,
+  `datasource db {\n  provider = "${provider}"\n  url      = env("DATABASE_URL")\n}`
+);
 
 writeFileSync(SCHEMA_PATH, updated);
+console.log(`Prisma schema: provider = ${provider}`);

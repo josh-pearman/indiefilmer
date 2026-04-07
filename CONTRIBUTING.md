@@ -12,7 +12,7 @@ Thanks for your interest in contributing. This guide covers everything you need 
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/indiefilmer.git
+git clone https://github.com/josh-pearman/indiefilmer.git
 cd indiefilmer
 npm run setup
 ```

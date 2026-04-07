@@ -48,7 +48,7 @@ indieFilmer is an open-source production planning tool built for indie and micro
 **Prerequisites:** Node.js 18+ and npm.
 
 ```bash
-git clone https://github.com/your-org/indiefilmer.git
+git clone https://github.com/josh-pearman/indiefilmer.git
 cd indiefilmer
 npm run setup
 npm run dev
@@ -56,11 +56,11 @@ npm run dev
 
 The interactive setup script will:
 1. Install dependencies
-2. Run database migrations
-3. Prompt you to create an admin account
+2. Prompt you to create an admin account
+3. Choose your database (SQLite or PostgreSQL)
 4. Configure the AI assistant (Claude CLI, API key, or none)
-5. Optionally enable Google Maps
-6. Generate your `.env` file
+5. Optionally enable Google Maps and email sending
+6. Generate your `.env` file and set up the database
 
 Open [http://localhost:3001](http://localhost:3001) when it finishes.
 
@@ -72,7 +72,7 @@ Open [http://localhost:3001](http://localhost:3001) when it finishes.
 docker compose up
 ```
 
-**With Postgres:**
+**With PostgreSQL:**
 
 ```bash
 docker compose --profile postgres up
@@ -84,6 +84,8 @@ When using the Postgres profile, set `DATABASE_URL` in your `.env` to point at t
 DATABASE_URL=postgresql://indiefilmer:changeme@db:5432/indiefilmer
 ```
 
+The app auto-detects the database provider from `DATABASE_URL` at build time. No manual configuration needed.
+
 The app is available at [http://localhost:3001](http://localhost:3001). The `data/` directory is mounted as a volume so SQLite databases and uploads persist across restarts.
 
 ## Configuration
@@ -94,7 +96,7 @@ Copy `.env.example` to `.env` and edit it, or run `npm run setup` to generate it
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `file:../data/db.sqlite` | SQLite file path or a `postgresql://` connection string |
+| `DATABASE_URL` | `file:../data/db.sqlite` | SQLite file path or a `postgresql://` connection string. The provider is auto-detected at build time. |
 | `AUTH_MODE` | `password` | `password` for self-hosted (username/password) or `email` for VPS (magic links) |
 | `APP_URL` | `http://localhost:3001` | Base URL used in invite links and emails |
 
