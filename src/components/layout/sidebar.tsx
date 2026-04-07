@@ -203,7 +203,7 @@ export function Sidebar({ projectName, displayName, projectMember = null, isNewP
               Settings
             </Link>
           )}
-          <CreateBackupButton />
+          {showSettings && <CreateBackupButton />}
           {displayName && (
             <form action={logout} className="mt-1">
               <button
@@ -261,7 +261,7 @@ export function Sidebar({ projectName, displayName, projectMember = null, isNewP
                     Settings
                   </Link>
                 )}
-                <CreateBackupButton />
+                {showSettings && <CreateBackupButton />}
                 {displayName && (
                   <form action={logout}>
                     <button
