@@ -13,6 +13,8 @@ import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getCurrentProjectId, getUserProjectIds } from "@/lib/project";
 import { isChatEnabled } from "@/lib/chat-provider";
+import { CreateProjectForm } from "@/components/projects/create-project-form";
+import { logout } from "@/actions/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -67,12 +69,31 @@ export default async function RootLayout({
   const userId = await getSessionUser();
   let projectId = await getCurrentProjectId();
 
-  if (userId && !pathname.startsWith("/projects") && !pathname.startsWith("/login") && !pathname.startsWith("/setup") && !pathname.startsWith("/signup") && !pathname.startsWith("/verify") && !pathname.startsWith("/pending") && !pathname.startsWith("/admin") && !pathname.startsWith("/settings") && !pathname.startsWith("/docs")) {
+  // Check if user has any projects at all
+  let userProjectIds: string[] = [];
+  let userSiteRole: string | null = null;
+  if (userId) {
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { siteRole: true }
+    });
+    userSiteRole = u?.siteRole ?? null;
+    userProjectIds = await getUserProjectIds(userId);
+  }
+
+  const noProjectPaths = ["/projects", "/login", "/setup", "/signup", "/verify", "/pending", "/admin", "/settings", "/docs", "/invite"];
+  const isNoProjectPath = noProjectPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+
+  // If user has no projects and isn't on an exempt path, auto-select or redirect
+  if (userId && !isNoProjectPath) {
     if (!projectId) {
-      const projectIds = await getUserProjectIds(userId);
-      if (projectIds.length === 0) redirect("/projects/new");
-      if (projectIds.length > 1) redirect("/projects");
-      redirect(`/api/project/select?id=${projectIds[0]!}`);
+      if (userProjectIds.length === 0) {
+        // Will be caught below and show welcome page
+      } else if (userProjectIds.length > 1) {
+        redirect("/projects");
+      } else {
+        redirect(`/api/project/select?id=${userProjectIds[0]!}`);
+      }
     }
   }
 
@@ -107,7 +128,29 @@ export default async function RootLayout({
       >
         <ServiceWorkerRegister />
         <InstallPrompt />
-        {showChrome ? (
+        {userId && userProjectIds.length === 0 && !isNoProjectPath && userSiteRole !== "superadmin" ? (
+          <main className="min-h-screen bg-background">
+            <div className="flex min-h-screen items-center justify-center px-4">
+              <div className="mx-auto w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-6 shadow-card">
+                <div>
+                  <h1 className="text-xl font-semibold">Welcome to indieFilmer</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Create your first project to get started. You can manage cast, crew, scenes, schedules, budgets, and more.
+                  </p>
+                </div>
+                <CreateProjectForm />
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Log out
+                  </button>
+                </form>
+              </div>
+            </div>
+          </main>
+        ) : showChrome ? (
           <div className="flex min-h-screen">
             <Sidebar
               projectName={projectName}
