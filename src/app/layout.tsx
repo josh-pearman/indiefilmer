@@ -94,9 +94,9 @@ export default async function RootLayout({
   const theme = user?.colorTheme ?? "light";
   const displayName = user?.name ?? user?.username ?? user?.email ?? null;
 
-  const authPages = ["/login", "/setup", "/signup", "/verify", "/pending", "/docs"];
-  const isAuthPage = authPages.some((p) => pathname.startsWith(p));
-  const showChrome = !!userId && !isAuthPage;
+  const noChromePaths = ["/login", "/setup", "/signup", "/verify", "/pending", "/docs", "/projects", "/invite"];
+  const isNoChromeRoute = noChromePaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const showChrome = !!userId && !isNoChromeRoute && !!projectId;
 
   return (
     <html lang="en" data-theme={theme}>
