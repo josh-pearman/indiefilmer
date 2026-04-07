@@ -73,6 +73,14 @@ export async function setProjectMemberCookie(
 export async function requireSectionAccess(section: SectionKey): Promise<void> {
   const userId = await getSessionUser();
   if (!userId) throw new Error("You must be logged in.");
+
+  // Superadmins bypass project-level access checks
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { siteRole: true }
+  });
+  if (user?.siteRole === "superadmin") return;
+
   const projectId = await getCurrentProjectId();
   if (!projectId) throw new Error("No project selected.");
   const member = await prisma.projectMember.findUnique({

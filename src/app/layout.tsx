@@ -67,7 +67,7 @@ export default async function RootLayout({
   const userId = await getSessionUser();
   let projectId = await getCurrentProjectId();
 
-  if (userId && !pathname.startsWith("/projects") && !pathname.startsWith("/login") && !pathname.startsWith("/setup") && !pathname.startsWith("/signup") && !pathname.startsWith("/verify") && !pathname.startsWith("/pending") && !pathname.startsWith("/admin") && !pathname.startsWith("/docs")) {
+  if (userId && !pathname.startsWith("/projects") && !pathname.startsWith("/login") && !pathname.startsWith("/setup") && !pathname.startsWith("/signup") && !pathname.startsWith("/verify") && !pathname.startsWith("/pending") && !pathname.startsWith("/admin") && !pathname.startsWith("/settings") && !pathname.startsWith("/docs")) {
     if (!projectId) {
       const projectIds = await getUserProjectIds(userId);
       if (projectIds.length === 0) redirect("/projects/new");
