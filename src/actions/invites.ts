@@ -61,13 +61,9 @@ export async function createInvite(
       return { error: "A pending invite already exists for this email." };
     }
 
-    // Build sections
-    const sections: string[] = role === "admin"
-      ? []
-      : SECTION_KEYS.filter((s) => s !== "settings" && formData.get(`section-${s}`) === "on");
-    if (role === "collaborator" && sections.length === 0) {
-      return { error: "Select at least one section for collaborators." };
-    }
+    // Default: collaborator with all sections
+    const allSections = SECTION_KEYS.filter((s) => s !== "settings");
+    const sections: string[] = role === "admin" ? [] : allSections;
 
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
@@ -82,6 +78,34 @@ export async function createInvite(
         expiresAt
       }
     });
+
+    // Create user and add as project member immediately so they appear in Manage collaborators
+    let invitedUser = await prisma.user.findUnique({ where: { email } });
+    if (!invitedUser) {
+      invitedUser = await prisma.user.create({
+        data: { email, approved: true }
+      });
+    } else if (!invitedUser.approved) {
+      await prisma.user.update({
+        where: { id: invitedUser.id },
+        data: { approved: true }
+      });
+      invitedUser = await prisma.user.findUniqueOrThrow({ where: { id: invitedUser.id } });
+    }
+
+    const existingMember = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: invitedUser.id, projectId } }
+    });
+    if (!existingMember) {
+      await prisma.projectMember.create({
+        data: {
+          userId: invitedUser.id,
+          projectId,
+          role,
+          allowedSections: JSON.stringify(sections)
+        }
+      });
+    }
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },

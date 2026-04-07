@@ -19,23 +19,38 @@ type Member = {
   allowedSections: string[];
 };
 
-export function ProjectMemberList({ members }: { members: Member[] }) {
+type Props = {
+  members: Member[];
+  mode: "edit" | "remove";
+};
+
+export function ProjectMemberList({ members, mode }: Props) {
   if (members.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">No collaborators yet. Add one above.</p>
+      <p className="text-sm text-muted-foreground">No collaborators yet. Invite someone by email above.</p>
+    );
+  }
+
+  if (mode === "remove") {
+    return (
+      <ul className="space-y-3">
+        {members.map((m) => (
+          <RemoveRow key={m.id} member={m} />
+        ))}
+      </ul>
     );
   }
 
   return (
     <ul className="space-y-4">
       {members.map((m) => (
-        <ProjectMemberRow key={m.id} member={m} />
+        <EditRow key={m.id} member={m} />
       ))}
     </ul>
   );
 }
 
-function ProjectMemberRow({ member }: { member: Member }) {
+function EditRow({ member }: { member: Member }) {
   const [editingSections, setEditingSections] = React.useState(false);
   const [selectedSections, setSelectedSections] = React.useState<Set<string>>(
     () => new Set(member.allowedSections)
@@ -60,21 +75,12 @@ function ProjectMemberRow({ member }: { member: Member }) {
     setMessage(result.error ?? result.success ?? null);
   };
 
-  const handleRemove = async () => {
-    if (!confirm("Remove this collaborator from the project?")) return;
-    setPending(true);
-    setMessage(null);
-    const result = await removeProjectMember(member.id);
-    setPending(false);
-    setMessage(result.error ?? result.success ?? null);
-  };
-
   return (
     <li className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-border p-3">
       <div>
         <div className="font-medium">{member.userName}</div>
         <div className="text-xs text-muted-foreground">
-          {member.username ?? member.email ?? member.userId}
+          {member.email ?? member.username ?? member.userId}
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground">
@@ -161,16 +167,46 @@ function ProjectMemberRow({ member }: { member: Member }) {
             </Button>
           </>
         )}
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          disabled={pending}
-          onClick={handleRemove}
-        >
-          Remove
-        </Button>
       </div>
+      {message && (
+        <p className={`w-full text-sm ${message.startsWith("Failed") || message.includes("error") ? "text-destructive" : "text-green-600 dark:text-green-400"}`}>
+          {message}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function RemoveRow({ member }: { member: Member }) {
+  const [pending, setPending] = React.useState(false);
+  const [message, setMessage] = React.useState<string | null>(null);
+
+  const handleRemove = async () => {
+    if (!confirm(`Remove ${member.userName} from the project?`)) return;
+    setPending(true);
+    setMessage(null);
+    const result = await removeProjectMember(member.id);
+    setPending(false);
+    setMessage(result.error ?? result.success ?? null);
+  };
+
+  return (
+    <li className="flex items-center justify-between rounded-lg border border-border p-3">
+      <div>
+        <span className="font-medium">{member.userName}</span>
+        <span className="ml-2 text-xs text-muted-foreground">
+          {member.email ?? member.username}
+        </span>
+      </div>
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        disabled={pending}
+        onClick={handleRemove}
+      >
+        Remove
+      </Button>
       {message && (
         <p className={`w-full text-sm ${message.startsWith("Failed") || message.includes("error") ? "text-destructive" : "text-green-600 dark:text-green-400"}`}>
           {message}

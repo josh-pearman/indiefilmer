@@ -37,7 +37,7 @@ export async function listUsersAvailableToAdd() {
   const excludeIds = new Set(existing.map((m) => m.userId));
   if (userId) excludeIds.add(userId);
   const users = await prisma.user.findMany({
-    where: { approved: true, id: { notIn: [...excludeIds] } },
+    where: { approved: true, id: { notIn: [...excludeIds] }, siteRole: { not: "superadmin" } },
     select: { id: true, name: true, username: true, email: true }
   });
   return users;
