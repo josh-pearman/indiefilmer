@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { COOKIE_NAME } from "@/lib/auth";
 import { PROJECT_COOKIE_NAME, PROJECT_MEMBER_COOKIE_NAME } from "@/lib/project";
-import { getSectionForPath, hasAccess } from "@/lib/sections";
+import { getSectionForPath, hasAccess, getFirstAllowedRoute } from "@/lib/sections";
 
 const memberCookieSchema = z.object({
   role: z.string(),
@@ -112,7 +112,8 @@ export async function middleware(request: NextRequest) {
     }
     const onlyProjectId = userProjectIds[0];
     const membership = memberships.find((m) => m.projectId === onlyProjectId);
-    const res = NextResponse.redirect(new URL("/", request.url));
+    const landingRoute = membership ? getFirstAllowedRoute(membership) : "/";
+    const res = NextResponse.redirect(new URL(landingRoute, request.url));
     const secureCookie = proto === "https";
     res.cookies.set(PROJECT_COOKIE_NAME, onlyProjectId, {
       httpOnly: true,
@@ -152,6 +153,16 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
+  // Sync cookie with latest permissions from database
+  const freshMemberships: Array<{ projectId: string; role: string; allowedSections: string }> =
+    Array.isArray(data.memberships) ? data.memberships : [];
+  const freshMembership = freshMemberships.find((m) => m.projectId === projectId);
+  let cookieNeedsUpdate = false;
+  if (freshMembership && (freshMembership.role !== member.role || freshMembership.allowedSections !== member.allowedSections)) {
+    member = { role: freshMembership.role, allowedSections: freshMembership.allowedSections };
+    cookieNeedsUpdate = true;
+  }
+
   const section = getSectionForPath(pathname);
   if (!section) {
     const res = NextResponse.next();
@@ -160,18 +171,43 @@ export async function middleware(request: NextRequest) {
   }
 
   if (section === "settings" && member.role !== "admin") {
-    const denied = new URL("/", request.url);
+    const fallback = getFirstAllowedRoute(member);
+    const denied = new URL(fallback, request.url);
     denied.searchParams.set("error", "section-denied");
-    return NextResponse.redirect(denied);
+    const redirectRes = NextResponse.redirect(denied);
+    if (cookieNeedsUpdate) {
+      const secureCookie = proto === "https";
+      redirectRes.cookies.set(PROJECT_MEMBER_COOKIE_NAME, JSON.stringify({ role: member.role, allowedSections: member.allowedSections }), { httpOnly: true, secure: secureCookie, sameSite: "lax", maxAge: 60 * 60 * 24 * 365, path: "/" });
+    }
+    return redirectRes;
   }
 
   if (!hasAccess(member, section)) {
-    const denied = new URL("/", request.url);
+    const fallback = getFirstAllowedRoute(member);
+    const denied = new URL(fallback, request.url);
     denied.searchParams.set("error", "section-denied");
-    return NextResponse.redirect(denied);
+    const redirectRes = NextResponse.redirect(denied);
+    if (cookieNeedsUpdate) {
+      const secureCookie = proto === "https";
+      redirectRes.cookies.set(PROJECT_MEMBER_COOKIE_NAME, JSON.stringify({ role: member.role, allowedSections: member.allowedSections }), { httpOnly: true, secure: secureCookie, sameSite: "lax", maxAge: 60 * 60 * 24 * 365, path: "/" });
+    }
+    return redirectRes;
   }
 
   const res = NextResponse.next();
+  if (cookieNeedsUpdate) {
+    const secureCookie = proto === "https";
+    res.cookies.set(PROJECT_MEMBER_COOKIE_NAME, JSON.stringify({
+      role: member.role,
+      allowedSections: member.allowedSections
+    }), {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/"
+    });
+  }
   res.headers.set("x-pathname", pathname);
   return res;
 }

@@ -132,3 +132,35 @@ export function parseAllowedSections(json: string): string[] {
     return [];
   }
 }
+
+/** Maps section keys to their default route, used to redirect users to their first allowed section. */
+const SECTION_TO_ROUTE: Partial<Record<SectionKey, string>> = {
+  dashboard: "/",
+  schedule: "/production/schedule",
+  tasks: "/production/tasks",
+  notes: "/production/notes",
+  locations: "/production/locations",
+  gear: "/production/gear",
+  "craft-services": "/production/catering",
+  script: "/script/hub",
+  scenes: "/script/scenes",
+  cast: "/talent/cast",
+  crew: "/talent/crew",
+  contacts: "/talent/contacts",
+  budget: "/accounting/budget",
+  activity: "/",
+};
+
+/**
+ * Returns the URL of the first section the member has access to.
+ * Falls back to "/" if nothing matches.
+ */
+export function getFirstAllowedRoute(member: ProjectMemberLike): string {
+  if (member.role === "admin") return "/";
+  const sections = parseAllowedSections(member.allowedSections);
+  for (const section of sections) {
+    const route = SECTION_TO_ROUTE[section as SectionKey];
+    if (route) return route;
+  }
+  return "/";
+}
