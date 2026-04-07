@@ -40,15 +40,18 @@ export default async function PeoplePage() {
 
   const authMode = getAuthMode();
 
-  const [teamMembers, projectMembers, availableUsers, pendingInvites] =
+  const [teamMembers, allProjectMembers, availableUsers, pendingInvites] =
     await Promise.all([
       isSuperadmin ? listTeamMembers() : Promise.resolve([]),
       isProjectAdmin ? listProjectMembers() : Promise.resolve([]),
-      isProjectAdmin ? listUsersAvailableToAdd() : Promise.resolve([]),
+      isProjectAdmin && isSuperadmin ? listUsersAvailableToAdd() : Promise.resolve([]),
       isProjectAdmin && authMode === "email"
         ? listPendingInvites()
         : Promise.resolve([])
     ]);
+
+  // Exclude the current user from the collaborator panels
+  const projectMembers = allProjectMembers.filter((m) => m.userId !== userId);
 
   return (
     <div className="space-y-8">
@@ -83,56 +86,66 @@ export default async function PeoplePage() {
         </Card>
       )}
 
-      {isProjectAdmin && (
+      {isProjectAdmin && authMode === "email" && (
         <Card>
           <CardHeader>
-            <CardTitle>Add collaborator</CardTitle>
-            <p className="text-sm font-normal text-muted-foreground">
-              Choose an existing user and assign a role. Collaborators can be
-              limited to specific sections.
-            </p>
+            <CardTitle>Invite by email</CardTitle>
           </CardHeader>
           <CardContent>
-            <AddProjectMemberForm availableUsers={availableUsers} />
+            <InviteForm />
           </CardContent>
         </Card>
       )}
 
-      {isProjectAdmin && authMode === "email" && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Invite by email</CardTitle>
-              <p className="text-sm font-normal text-muted-foreground">
-                Send an invite link to someone who doesn&apos;t have an account
-                yet.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <InviteForm />
-            </CardContent>
-          </Card>
-
-          {pendingInvites.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Pending invites</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PendingInvitesList invites={pendingInvites} />
-              </CardContent>
-            </Card>
-          )}
-        </>
+      {isProjectAdmin && authMode === "email" && pendingInvites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending invites</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PendingInvitesList invites={pendingInvites} />
+          </CardContent>
+        </Card>
       )}
 
       {isProjectAdmin && (
         <Card>
           <CardHeader>
-            <CardTitle>Project members</CardTitle>
+            <CardTitle>Manage collaborators</CardTitle>
+            <p className="text-sm font-normal text-muted-foreground">
+              Edit roles and section access for your collaborators.
+            </p>
           </CardHeader>
           <CardContent>
-            <ProjectMemberList members={projectMembers} />
+            <ProjectMemberList members={projectMembers} mode="edit" />
+          </CardContent>
+        </Card>
+      )}
+
+      {isProjectAdmin && projectMembers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Remove access</CardTitle>
+            <p className="text-sm font-normal text-muted-foreground">
+              Remove a collaborator from this project.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ProjectMemberList members={projectMembers} mode="remove" />
+          </CardContent>
+        </Card>
+      )}
+
+      {isProjectAdmin && isSuperadmin && availableUsers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add existing user</CardTitle>
+            <p className="text-sm font-normal text-muted-foreground">
+              Add a site user directly to this project.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <AddProjectMemberForm availableUsers={availableUsers} />
           </CardContent>
         </Card>
       )}
