@@ -53,7 +53,7 @@ export function InstallPrompt() {
   if (!deferredPrompt || dismissed) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-bottom-4 duration-300 md:left-auto md:right-6">
+    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-bottom-4 duration-300 md:bottom-20 md:left-auto md:right-6">
       <div className="flex items-center gap-3 rounded-lg border bg-background p-4 shadow-lg">
         <Download className="h-5 w-5 shrink-0 text-primary" />
         <div className="flex-1 min-w-0">
@@ -68,10 +68,10 @@ export function InstallPrompt() {
           </Button>
           <button
             onClick={handleDismiss}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Dismiss"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       </div>

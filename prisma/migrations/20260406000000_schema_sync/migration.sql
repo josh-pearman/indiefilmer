@@ -1,7 +1,5 @@
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "Decision";
-PRAGMA foreign_keys=on;
+-- DropTable (if it exists)
+DROP TABLE IF EXISTS "Decision";
 
 -- CreateTable
 CREATE TABLE "Invite" (

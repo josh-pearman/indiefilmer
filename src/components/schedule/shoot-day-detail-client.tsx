@@ -10,6 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SceneChecklist } from "@/components/schedule/scene-checklist";
 import type { SceneChecklistItem, ScheduleDayBadge } from "@/components/schedule/scene-checklist";
+import { ShotlistGenerateDialog } from "@/components/schedule/shotlist-generate-dialog";
+import { ShotlistEditorDialog } from "@/components/schedule/shotlist-editor-dialog";
+import { exportShotlistCSV, exportShotlistPrint } from "@/lib/shotlist-export";
+import type { ShotlistSceneContext } from "@/lib/shotlist-prompt";
 
 type ShootDayFormData = {
   id: string;
@@ -28,6 +32,30 @@ type LocationOption = { id: string; name: string };
 type CastNeededItem = { roleName: string; actorName: string | null };
 type CrewOption = { id: string; name: string; position: string };
 
+type ShotData = {
+  id: string;
+  shotNumber: string;
+  shotSize: string | null;
+  cameraAngle: string | null;
+  cameraMovement: string | null;
+  lens: string | null;
+  description: string;
+  subjectOrFocus: string | null;
+  notes: string | null;
+  sortOrder: number;
+};
+
+type SceneShotGroup = {
+  scene: {
+    id: string;
+    sceneNumber: string;
+    title: string | null;
+    intExt: string | null;
+    dayNight: string | null;
+  };
+  shots: ShotData[];
+};
+
 export function ShootDayDetailClient({
   shootDay,
   dayNumber,
@@ -39,7 +67,11 @@ export function ShootDayDetailClient({
   castNeeded,
   totalPages: _totalPages,
   crew,
-  assignedCrewIds
+  assignedCrewIds,
+  shotlistSceneContext,
+  sceneNumberToId,
+  shotsByScene,
+  totalShotCount
 }: {
   shootDay: ShootDayFormData;
   dayNumber: number;
@@ -52,6 +84,10 @@ export function ShootDayDetailClient({
   totalPages: number;
   crew: CrewOption[];
   assignedCrewIds: string[];
+  shotlistSceneContext: ShotlistSceneContext[];
+  sceneNumberToId: Record<string, string>;
+  shotsByScene: SceneShotGroup[];
+  totalShotCount: number;
 }) {
   const router = useRouter();
   const [sceneIds, setSceneIds] = React.useState<string[]>(assignedSceneIds);
@@ -61,6 +97,8 @@ export function ShootDayDetailClient({
   const [crewIds, setCrewIds] = React.useState<string[]>(assignedCrewIds);
   const [crewSaveError, setCrewSaveError] = React.useState<string | null>(null);
   const [crewSaving, setCrewSaving] = React.useState(false);
+  const [shotlistDialogOpen, setShotlistDialogOpen] = React.useState(false);
+  const [editorDialogOpen, setEditorDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     setSceneIds(assignedSceneIds);
@@ -323,6 +361,131 @@ export function ShootDayDetailClient({
           </CardContent>
         </Card>
       )}
+
+      {/* Shot List */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Shot List</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {totalShotCount > 0
+                  ? `${totalShotCount} shot${totalShotCount !== 1 ? "s" : ""} across ${shotsByScene.filter((g) => g.shots.length > 0).length} scene${shotsByScene.filter((g) => g.shots.length > 0).length !== 1 ? "s" : ""}`
+                  : "No shots yet. Generate a shot list using your own AI."}
+              </p>
+            </div>
+            {!shootDay.isDeleted && (
+              <div className="flex gap-2 no-print">
+                {shotlistSceneContext.length > 0 && (
+                  <Link href={`/production/schedule/${shootDay.id}/shot-list`}>
+                    <Button
+                      type="button"
+                      variant={totalShotCount > 0 ? "outline" : "default"}
+                      size="sm"
+                    >
+                      {totalShotCount > 0 ? "Open Shot List" : "Build Shot List"}
+                    </Button>
+                  </Link>
+                )}
+                {totalShotCount > 0 && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => exportShotlistCSV(shotsByScene, `Day ${dayNumber}`)}
+                    >
+                      CSV
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => exportShotlistPrint(shotsByScene, `Day ${dayNumber}`)}
+                    >
+                      Print
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        {totalShotCount > 0 && (
+          <CardContent className="space-y-5">
+            {shotsByScene
+              .filter((group) => group.shots.length > 0)
+              .map((group) => (
+                <div key={group.scene.id}>
+                  <h3 className="mb-2 text-sm font-semibold">
+                    Sc. {group.scene.sceneNumber}
+                    {group.scene.title ? ` — ${group.scene.title}` : ""}
+                    {group.scene.intExt && (
+                      <span className="ml-2 font-normal text-muted-foreground">
+                        {group.scene.intExt}
+                        {group.scene.dayNight ? ` / ${group.scene.dayNight}` : ""}
+                      </span>
+                    )}
+                  </h3>
+                  <div className="space-y-1.5">
+                    {group.shots.map((shot) => (
+                      <div
+                        key={shot.id}
+                        className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5"
+                      >
+                        {/* Shot number + size badge */}
+                        <span className="inline-flex items-center gap-1 shrink-0 rounded bg-muted px-2 py-0.5 text-xs font-mono font-semibold mt-0.5">
+                          {shot.shotNumber}
+                          {shot.shotSize && (
+                            <span className="text-muted-foreground font-normal">
+                              {shot.shotSize}
+                            </span>
+                          )}
+                        </span>
+
+                        {/* Main content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm leading-snug">{shot.description}</p>
+                          {(shot.subjectOrFocus || shot.cameraMovement || shot.lens) && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {[shot.subjectOrFocus, shot.cameraMovement, shot.lens]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
+                          {shot.notes && (
+                            <p className="mt-1 text-xs text-muted-foreground italic">
+                              {shot.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </CardContent>
+        )}
+      </Card>
+
+      {shotlistSceneContext.length > 0 && (
+        <ShotlistGenerateDialog
+          open={shotlistDialogOpen}
+          onOpenChange={setShotlistDialogOpen}
+          shootDayId={shootDay.id}
+          shootDayLabel={`Day ${dayNumber}`}
+          scenes={shotlistSceneContext}
+          sceneNumberToId={sceneNumberToId}
+          hasExistingShots={totalShotCount > 0}
+        />
+      )}
+
+      <ShotlistEditorDialog
+        open={editorDialogOpen}
+        onOpenChange={setEditorDialogOpen}
+        shotsByScene={shotsByScene}
+        shootDayLabel={`Day ${dayNumber}`}
+      />
     </div>
   );
 }

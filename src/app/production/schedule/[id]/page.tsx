@@ -6,6 +6,7 @@ import { localDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { getScenesForLocation, getSceneScheduleStatus, getShootDayNumberMap, type ShootDayInfo } from "@/lib/schedule";
 import { ShootDayDetailClient } from "@/components/schedule/shoot-day-detail-client";
+import { getShotsForShootDay } from "@/actions/scenes";
 
 async function getShootDay(id: string, projectId: string) {
   return prisma.shootDay.findFirst({
@@ -53,7 +54,7 @@ export default async function ShootDayDetailPage({
     .map((s) => s.scene.id);
   const assignedCrewIds = shootDay.crewMembers.map((c) => c.crewMemberId);
 
-  const [locations, crew, dayNumberMap, scenesAtLocation, scheduleStatus, castForScenes] = await Promise.all([
+  const [locations, crew, dayNumberMap, scenesAtLocation, scheduleStatus, castForScenes, shotListData] = await Promise.all([
     getLocations(projectId),
     getCrew(projectId),
     getShootDayNumberMap(projectId),
@@ -66,7 +67,8 @@ export default async function ShootDayDetailPage({
           where: { sceneId: { in: assignedSceneIds } },
           include: { castMember: { select: { id: true, roleName: true, actorName: true, name: true } } }
         })
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    getShotsForShootDay(id)
   ]);
 
   const dayNumber = dayNumberMap.get(id) ?? 0;
@@ -96,6 +98,58 @@ export default async function ShootDayDetailPage({
     .filter((s) => !s.scene.isDeleted && s.scene.pageCount != null)
     .reduce((sum, s) => sum + (s.scene.pageCount ?? 0), 0);
 
+  // Build scene context for shot list prompt generation
+  const fullScenes = assignedSceneIds.length > 0
+    ? await prisma.scene.findMany({
+        where: { id: { in: assignedSceneIds }, isDeleted: false },
+        include: {
+          location: { select: { name: true } },
+          tags: { select: { tag: true } },
+          castAssignments: { include: { castMember: { select: { name: true } } } }
+        }
+      })
+    : [];
+
+  const shotlistSceneContext = fullScenes.map((s) => ({
+    sceneNumber: s.sceneNumber,
+    title: s.title,
+    intExt: s.intExt,
+    dayNight: s.dayNight,
+    pageCount: s.pageCount,
+    synopsis: s.synopsis,
+    locationName: s.location?.name ?? null,
+    characters: s.castAssignments.map((ca) => ca.castMember.name),
+    tags: s.tags.map((t) => t.tag)
+  }));
+
+  const sceneNumberToId: Record<string, string> = {};
+  for (const s of fullScenes) {
+    sceneNumberToId[s.sceneNumber] = s.id;
+  }
+
+  // Flatten all shots to check if any exist
+  const totalShotCount = shotListData.reduce(
+    (sum, group) => sum + group.shots.length,
+    0
+  );
+
+  // Serialize shots for the client
+  const shotsByScene = shotListData.map((group) => ({
+    scene: group.scene,
+    shots: group.shots.map((shot) => ({
+      id: shot.id,
+      shotNumber: shot.shotNumber,
+      shotSize: shot.shotSize,
+      cameraAngle: shot.cameraAngle,
+      cameraMovement: shot.cameraMovement,
+      lens: shot.lens,
+      description: shot.description,
+      subjectOrFocus: shot.subjectOrFocus,
+      notes: shot.notes,
+      sortOrder: shot.sortOrder
+    }))
+  }));
+
   return (
     <div className="space-y-6">
       <Link
@@ -120,6 +174,9 @@ export default async function ShootDayDetailPage({
           </p>
         </div>
         <div className="flex gap-2 no-print">
+          <Link href={`/production/schedule/${id}/shot-list`}>
+            <Button variant="outline">Shot List</Button>
+          </Link>
           <Link href={`/production/schedule/${id}/call-sheet`}>
             <Button variant="default">View Call Sheet</Button>
           </Link>
@@ -149,6 +206,10 @@ export default async function ShootDayDetailPage({
         totalPages={totalPages}
         crew={crew}
         assignedCrewIds={assignedCrewIds}
+        shotlistSceneContext={shotlistSceneContext}
+        sceneNumberToId={sceneNumberToId}
+        shotsByScene={shotsByScene}
+        totalShotCount={totalShotCount}
       />
     </div>
   );

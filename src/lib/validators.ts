@@ -384,6 +384,73 @@ export const toggleGearItemDaySchema = z.object({
   shootDayId: z.string().min(1)
 });
 
+// ─── Shots ─────────────────────────────────────────────────
+
+export const createShotSchema = z.object({
+  sceneId: z.string().min(1, "Scene is required"),
+  shotNumber: z.string().min(1, "Shot number is required"),
+  shotSize: z.string().optional().or(z.literal("")),
+  cameraAngle: z.string().optional().or(z.literal("")),
+  cameraMovement: z.string().optional().or(z.literal("")),
+  lens: z.string().optional().or(z.literal("")),
+  description: z.string().min(1, "Description is required"),
+  subjectOrFocus: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal(""))
+});
+
+export const updateShotSchema = createShotSchema.partial().extend({
+  id: z.string().min(1, "Shot ID is required")
+});
+
+export const reorderShotsSchema = z.object({
+  sceneId: z.string().min(1),
+  shotIds: z.array(z.string()).min(0)
+});
+
+// ─── Shot list import ──────────────────────────────────────
+
+export const importedShotSchema = z.object({
+  sceneNumber: z.string().min(1, "Scene number is required"),
+  shotNumber: z.string().min(1, "Shot number is required"),
+  shotSize: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
+  cameraAngle: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
+  cameraMovement: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
+  lens: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
+  description: z.string().min(1, "Description is required"),
+  subjectOrFocus: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
+  notes: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined)
+});
+
+export const importShotsSchema = z.object({
+  shots: z
+    .array(importedShotSchema)
+    .min(1, "At least one shot is required")
+});
+
 // ─── Script extraction import ──────────────────────────────
 
 export const importedLocationSchema = z.object({

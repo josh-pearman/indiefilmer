@@ -6,7 +6,7 @@ import { createLogger } from "@/lib/logger";
 const logger = createLogger("chat-cli");
 
 const DEFAULT_CLAUDE_PATH = `${process.env.HOME ?? "~"}/.local/bin/claude`;
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 5 * 60_000; // 5 minutes — Claude can take a while on complex responses
 
 function resolveClaudeCommand(): string {
   const fromEnv = process.env.CLAUDE_PATH?.trim();

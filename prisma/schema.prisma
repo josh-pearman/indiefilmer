@@ -214,6 +214,7 @@ model Scene {
   tags             SceneTag[]
   castAssignments  SceneCast[]
   shootDayScenes   ShootDayScene[]
+  shots            Shot[]
 }
 
 model SceneTag {
@@ -229,6 +230,24 @@ model SceneCast {
   scene        Scene      @relation(fields: [sceneId], references: [id], onDelete: Cascade)
   castMemberId String
   castMember   CastMember @relation(fields: [castMemberId], references: [id], onDelete: Cascade)
+}
+
+model Shot {
+  id              String   @id @default(cuid())
+  sceneId         String
+  scene           Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  shotNumber      String                         // "1A", "1B", "2", etc.
+  shotSize        String?                        // WS, MS, MCU, CU, ECU, OTS, POV, AERIAL
+  cameraAngle     String?                        // eye-level, low, high, dutch, bird's-eye, worm's-eye
+  cameraMovement  String?                        // static, pan, tilt, dolly, tracking, handheld, steadicam, crane
+  lens            String?                        // "50mm", "wide", "telephoto", etc.
+  description     String                         // what we see / action in the shot
+  subjectOrFocus  String?                        // who or what is the focus
+  notes           String?                        // setup notes, special requirements
+  sortOrder       Int      @default(0)
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ─── Locations ────────────────────────────────────────────

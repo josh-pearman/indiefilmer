@@ -14,7 +14,11 @@ import {
   updateSceneSchema,
   toggleSceneTagSchema,
   sceneCastSchema,
-  importScenesAndCastSchema
+  importScenesAndCastSchema,
+  importShotsSchema,
+  createShotSchema,
+  updateShotSchema,
+  reorderShotsSchema
 } from "@/lib/validators";
 
 import { type ActionResult } from "@/lib/action-result";
@@ -686,5 +690,380 @@ export async function removeShotlist(sceneId: string): Promise<ActionResult> {
 
   revalidatePath("/script/scenes");
   revalidatePath(`/script/scenes/${sceneId}`);
+  return {};
+}
+
+// ─── Shot list import (BYOAI) ────────────────────────────────
+
+export type ImportShotsResult = {
+  success: boolean;
+  errors?: string[];
+  shotCount?: number;
+  sceneCount?: number;
+  skippedSceneRefs?: number;
+};
+
+/**
+ * Import shots from AI-generated JSON.
+ * `sceneNumberToId` maps scene numbers (as the AI sees them) to actual scene IDs in the DB.
+ */
+export async function importShots(
+  jsonString: string,
+  sceneNumberToId: Record<string, string>
+): Promise<ImportShotsResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  let raw = jsonString.trim();
+  raw = stripMarkdownFences(raw);
+
+  const jsonStr = raw.startsWith("{") ? raw : extractJsonObject(raw);
+  if (!jsonStr) {
+    return {
+      success: false,
+      errors: [
+        "Invalid JSON. Make sure you copied the complete output from the LLM."
+      ]
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    return {
+      success: false,
+      errors: [
+        "Invalid JSON. Make sure you copied the complete output from the LLM."
+      ]
+    };
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return { success: false, errors: ["Expected a JSON object."] };
+  }
+
+  const obj = parsed as Record<string, unknown>;
+  if (!("shots" in obj)) {
+    return { success: false, errors: ["Missing 'shots' key."] };
+  }
+
+  const validated = importShotsSchema.safeParse(parsed);
+  if (!validated.success) {
+    const errors: string[] = [];
+    for (const issue of validated.error.issues) {
+      const pathSegs = issue.path;
+      if (pathSegs[0] === "shots" && typeof pathSegs[1] === "number") {
+        const idx = pathSegs[1];
+        const shotArr = Array.isArray(obj.shots) ? obj.shots : [];
+        const shot = shotArr[idx] as { sceneNumber?: string; shotNumber?: string } | undefined;
+        const label = shot
+          ? `Scene ${shot.sceneNumber ?? "?"} shot ${shot.shotNumber ?? "?"}`
+          : `Shot at index ${idx}`;
+        errors.push(`${label}: ${issue.message}`);
+      } else {
+        errors.push(`${pathSegs.join(".")}: ${issue.message}`);
+      }
+    }
+    return { success: false, errors };
+  }
+
+  const { shots } = validated.data;
+  if (shots.length === 0) {
+    return { success: false, errors: ["No shots found."] };
+  }
+
+  let skippedSceneRefs = 0;
+  const scenesWithShots = new Set<string>();
+
+  await prisma.$transaction(async (tx) => {
+    // Group shots by scene so we can set sortOrder per scene
+    const shotsByScene = new Map<string, typeof shots>();
+    for (const shot of shots) {
+      const sceneId = sceneNumberToId[shot.sceneNumber];
+      if (!sceneId) {
+        skippedSceneRefs++;
+        continue;
+      }
+      // Verify scene belongs to this project
+      const scene = await tx.scene.findFirst({
+        where: { id: sceneId, projectId }
+      });
+      if (!scene) {
+        skippedSceneRefs++;
+        continue;
+      }
+      scenesWithShots.add(sceneId);
+      const existing = shotsByScene.get(sceneId) ?? [];
+      existing.push(shot);
+      shotsByScene.set(sceneId, existing);
+    }
+
+    for (const [sceneId, sceneShots] of shotsByScene) {
+      // Get the current max sortOrder for this scene to append after existing shots
+      const lastShot = await tx.shot.findFirst({
+        where: { sceneId, isDeleted: false },
+        orderBy: { sortOrder: "desc" },
+        select: { sortOrder: true }
+      });
+      let nextOrder = (lastShot?.sortOrder ?? -1) + 1;
+
+      for (const shot of sceneShots) {
+        await tx.shot.create({
+          data: {
+            sceneId,
+            shotNumber: shot.shotNumber,
+            shotSize: shot.shotSize ?? null,
+            cameraAngle: shot.cameraAngle ?? null,
+            cameraMovement: shot.cameraMovement ?? null,
+            lens: shot.lens ?? null,
+            description: shot.description,
+            subjectOrFocus: shot.subjectOrFocus ?? null,
+            notes: shot.notes ?? null,
+            sortOrder: nextOrder++
+          }
+        });
+      }
+    }
+  });
+
+  const importedCount = shots.length - skippedSceneRefs;
+
+  await logAudit({
+    projectId,
+    action: "create",
+    entityType: "Shot",
+    entityId: "bulk-import",
+    changeNote: `Imported ${importedCount} shots across ${scenesWithShots.size} scenes from AI shot list`,
+    performedBy: await getPerformedBy()
+  });
+
+  revalidatePath("/script/scenes");
+  revalidatePath("/production/schedule");
+
+  return {
+    success: true,
+    shotCount: importedCount,
+    sceneCount: scenesWithShots.size,
+    skippedSceneRefs: skippedSceneRefs > 0 ? skippedSceneRefs : undefined
+  };
+}
+
+/** Get all shots for scenes assigned to a shoot day */
+export async function getShotsForShootDay(shootDayId: string) {
+  const projectId = await requireCurrentProjectId();
+
+  const shootDay = await prisma.shootDay.findFirst({
+    where: { id: shootDayId, projectId },
+    include: {
+      scenes: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          scene: {
+            select: {
+              id: true,
+              sceneNumber: true,
+              title: true,
+              intExt: true,
+              dayNight: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!shootDay) return [];
+
+  const sceneIds = shootDay.scenes
+    .map((s) => s.scene.id);
+
+  if (sceneIds.length === 0) return [];
+
+  const shots = await prisma.shot.findMany({
+    where: {
+      sceneId: { in: sceneIds },
+      isDeleted: false
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+  });
+
+  // Group by scene, preserving shoot day scene order
+  return shootDay.scenes.map((sds) => ({
+    scene: sds.scene,
+    shots: shots.filter((shot) => shot.sceneId === sds.scene.id)
+  }));
+}
+
+/** Delete all shots for scenes assigned to a shoot day (for re-import) */
+export async function clearShotsForShootDay(shootDayId: string): Promise<ActionResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const shootDay = await prisma.shootDay.findFirst({
+    where: { id: shootDayId, projectId },
+    include: {
+      scenes: { select: { sceneId: true } }
+    }
+  });
+
+  if (!shootDay) return { error: "Shoot day not found" };
+
+  const sceneIds = shootDay.scenes.map((s) => s.sceneId);
+  if (sceneIds.length === 0) return {};
+
+  const result = await prisma.shot.updateMany({
+    where: { sceneId: { in: sceneIds }, isDeleted: false },
+    data: { isDeleted: true }
+  });
+
+  await logAudit({
+    projectId,
+    action: "delete",
+    entityType: "Shot",
+    entityId: shootDayId,
+    changeNote: `Soft-deleted ${result.count} shots for shoot day re-import`,
+    performedBy: await getPerformedBy()
+  });
+
+  revalidatePath("/production/schedule");
+  return {};
+}
+
+// ─── Shot CRUD ───────────────────────────────────────────────
+
+export async function createShot(data: {
+  sceneId: string;
+  shotNumber: string;
+  shotSize?: string;
+  cameraAngle?: string;
+  cameraMovement?: string;
+  lens?: string;
+  description: string;
+  subjectOrFocus?: string;
+  notes?: string;
+}): Promise<ActionResult & { shotId?: string }> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const validated = createShotSchema.safeParse(data);
+  if (!validated.success) {
+    return { error: validated.error.issues[0]?.message ?? "Invalid data" };
+  }
+
+  const scene = await prisma.scene.findFirst({
+    where: { id: data.sceneId, projectId, isDeleted: false }
+  });
+  if (!scene) return { error: "Scene not found" };
+
+  const lastShot = await prisma.shot.findFirst({
+    where: { sceneId: data.sceneId, isDeleted: false },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true }
+  });
+
+  const shot = await prisma.shot.create({
+    data: {
+      sceneId: data.sceneId,
+      shotNumber: data.shotNumber,
+      shotSize: data.shotSize || null,
+      cameraAngle: data.cameraAngle || null,
+      cameraMovement: data.cameraMovement || null,
+      lens: data.lens || null,
+      description: data.description,
+      subjectOrFocus: data.subjectOrFocus || null,
+      notes: data.notes || null,
+      sortOrder: (lastShot?.sortOrder ?? -1) + 1
+    }
+  });
+
+  revalidatePath("/production/schedule");
+  return { shotId: shot.id };
+}
+
+export async function updateShot(data: {
+  id: string;
+  shotNumber?: string;
+  shotSize?: string;
+  cameraAngle?: string;
+  cameraMovement?: string;
+  lens?: string;
+  description?: string;
+  subjectOrFocus?: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const validated = updateShotSchema.safeParse(data);
+  if (!validated.success) {
+    return { error: validated.error.issues[0]?.message ?? "Invalid data" };
+  }
+
+  const shot = await prisma.shot.findFirst({
+    where: { id: data.id, isDeleted: false },
+    include: { scene: { select: { projectId: true } } }
+  });
+  if (!shot || shot.scene.projectId !== projectId) return { error: "Shot not found" };
+
+  await prisma.shot.update({
+    where: { id: data.id },
+    data: {
+      ...(data.shotNumber !== undefined && { shotNumber: data.shotNumber }),
+      ...(data.shotSize !== undefined && { shotSize: data.shotSize || null }),
+      ...(data.cameraAngle !== undefined && { cameraAngle: data.cameraAngle || null }),
+      ...(data.cameraMovement !== undefined && { cameraMovement: data.cameraMovement || null }),
+      ...(data.lens !== undefined && { lens: data.lens || null }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.subjectOrFocus !== undefined && { subjectOrFocus: data.subjectOrFocus || null }),
+      ...(data.notes !== undefined && { notes: data.notes || null })
+    }
+  });
+
+  revalidatePath("/production/schedule");
+  return {};
+}
+
+export async function deleteShot(shotId: string): Promise<ActionResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const shot = await prisma.shot.findFirst({
+    where: { id: shotId, isDeleted: false },
+    include: { scene: { select: { projectId: true } } }
+  });
+  if (!shot || shot.scene.projectId !== projectId) return { error: "Shot not found" };
+
+  await prisma.shot.update({
+    where: { id: shotId },
+    data: { isDeleted: true }
+  });
+
+  revalidatePath("/production/schedule");
+  return {};
+}
+
+export async function reorderShots(
+  sceneId: string,
+  shotIds: string[]
+): Promise<ActionResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const scene = await prisma.scene.findFirst({
+    where: { id: sceneId, projectId, isDeleted: false }
+  });
+  if (!scene) return { error: "Scene not found" };
+
+  await prisma.$transaction(
+    shotIds.map((id, index) =>
+      prisma.shot.update({
+        where: { id },
+        data: { sortOrder: index }
+      })
+    )
+  );
+
+  revalidatePath("/production/schedule");
   return {};
 }
