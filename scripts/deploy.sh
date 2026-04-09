@@ -6,7 +6,7 @@ DB_URL="${DATABASE_URL:-}"
 if [ -z "$DB_URL" ]; then
   # Try loading from .env
   if [ -f .env ]; then
-    DB_URL=$(grep -E '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"' | tr -d "'")
+    DB_URL=$(grep -E '^\s*DATABASE_URL=' .env | sed 's/^[[:space:]]*DATABASE_URL=//' | tr -d '"' | tr -d "'")
   fi
 fi
 
