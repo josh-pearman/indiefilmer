@@ -87,6 +87,56 @@ export async function createScene(formData: FormData): Promise<ActionResult> {
   return {};
 }
 
+/**
+ * Create a quick "Unassigned" scene and attach it to a shoot day.
+ * Used when the user wants to start shot-listing without setting up scenes first.
+ */
+export async function createQuickSceneForShootDay(
+  shootDayId: string,
+  sceneNumber?: string,
+  title?: string
+): Promise<ActionResult & { sceneId?: string }> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const shootDay = await prisma.shootDay.findFirst({
+    where: { id: shootDayId, projectId, isDeleted: false },
+    include: { scenes: { select: { sceneId: true } } }
+  });
+  if (!shootDay) return { error: "Shoot day not found" };
+
+  // Use provided scene number or auto-generate one
+  let num = sceneNumber?.trim();
+  if (!num) {
+    const lastScene = await prisma.scene.findFirst({
+      where: { projectId, isDeleted: false },
+      orderBy: { createdAt: "desc" },
+      select: { sceneNumber: true }
+    });
+    num = lastScene
+      ? String(Math.max(1, ...[parseInt(lastScene.sceneNumber, 10)].filter((n) => !isNaN(n))) + 1)
+      : "1";
+  }
+
+  const scene = await prisma.scene.create({
+    data: {
+      projectId,
+      sceneNumber: num,
+      title: title || null
+    }
+  });
+
+  // Assign to shoot day at the end of the list
+  const maxOrder = shootDay.scenes.length;
+  await prisma.shootDayScene.create({
+    data: { shootDayId, sceneId: scene.id, sortOrder: maxOrder }
+  });
+
+  revalidatePath("/script/scenes");
+  revalidatePath("/production/schedule");
+  return { sceneId: scene.id };
+}
+
 export async function updateScene(
   id: string,
   formData: FormData

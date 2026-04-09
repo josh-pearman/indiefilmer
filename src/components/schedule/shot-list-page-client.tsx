@@ -13,7 +13,8 @@ import {
   clearShotsForShootDay,
   importShots,
   uploadShotImage,
-  removeShotImage
+  removeShotImage,
+  createQuickSceneForShootDay
 } from "@/actions/scenes";
 import { assignScenesToDay } from "@/actions/schedule";
 import { ShotlistGenerateDialog } from "@/components/schedule/shotlist-generate-dialog";
@@ -1035,18 +1036,11 @@ export function ShotListPageClient({
             })}
 
             {localShots.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  No scenes assigned to this shoot day.
-                </p>
-                {availableScenes.length > 0 && (
-                  <AddScenesPanel
-                    shootDayId={shootDayId}
-                    availableScenes={availableScenes}
-                    existingSceneIds={scenes.map((s) => s.id)}
-                  />
-                )}
-              </div>
+              <EmptyState
+                shootDayId={shootDayId}
+                availableScenes={availableScenes}
+                existingSceneIds={scenes.map((s) => s.id)}
+              />
             )}
           </DragDropContext>
         )}
@@ -1110,9 +1104,9 @@ export function ShotListPageClient({
   );
 }
 
-// ─── Add Scenes Panel ─────────────────────────────────────
+// ─── Empty State ──────────────────────────────────────────
 
-function AddScenesPanel({
+function EmptyState({
   shootDayId,
   availableScenes,
   existingSceneIds
@@ -1122,8 +1116,23 @@ function AddScenesPanel({
   existingSceneIds: string[];
 }) {
   const router = useRouter();
+  const [mode, setMode] = React.useState<"buttons" | "create" | "pick">("buttons");
+  const [sceneNumber, setSceneNumber] = React.useState("");
+  const [sceneTitle, setSceneTitle] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [assigning, setAssigning] = React.useState(false);
+
+  const handleCreate = async () => {
+    if (!sceneNumber.trim()) return;
+    setCreating(true);
+    await createQuickSceneForShootDay(shootDayId, sceneNumber.trim(), sceneTitle.trim() || undefined);
+    setCreating(false);
+    setSceneNumber("");
+    setSceneTitle("");
+    // Stay in create mode so they can add more
+    router.refresh();
+  };
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -1137,43 +1146,99 @@ function AddScenesPanel({
   const handleAssign = async () => {
     if (selected.size === 0) return;
     setAssigning(true);
-    const allSceneIds = [...existingSceneIds, ...selected];
-    await assignScenesToDay(shootDayId, allSceneIds);
+    await assignScenesToDay(shootDayId, [...existingSceneIds, ...selected]);
     setAssigning(false);
     router.refresh();
   };
 
   return (
-    <div className="mx-auto max-w-md text-left">
-      <p className="text-sm font-medium mb-2">Add scenes to this shoot day:</p>
-      <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border/50">
-        {availableScenes.map((scene) => (
-          <label
-            key={scene.id}
-            className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
-          >
-            <input
-              type="checkbox"
-              checked={selected.has(scene.id)}
-              onChange={() => toggle(scene.id)}
-              className="rounded border-input"
+    <div className="py-12 text-center">
+      <p className="text-sm text-muted-foreground mb-4">
+        No scenes assigned to this shoot day.
+      </p>
+
+      {mode === "buttons" && (
+        <div className="flex items-center justify-center gap-3">
+          <Button size="sm" onClick={() => setMode("create")}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Create Scene
+          </Button>
+          {availableScenes.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setMode("pick")}>
+              Add Existing Scenes
+            </Button>
+          )}
+        </div>
+      )}
+
+      {mode === "create" && (
+        <div className="mx-auto max-w-sm">
+          <div className="flex gap-2">
+            <Input
+              value={sceneNumber}
+              onChange={(e) => setSceneNumber(e.target.value)}
+              placeholder="Scene # (e.g. 1)"
+              className="h-9 w-24 text-sm font-mono"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             />
-            <span className="font-mono text-xs font-semibold">{scene.sceneNumber}</span>
-            {scene.title && (
-              <span className="text-muted-foreground truncate">{scene.title}</span>
+            <Input
+              value={sceneTitle}
+              onChange={(e) => setSceneTitle(e.target.value)}
+              placeholder="Title (optional)"
+              className="h-9 flex-1 text-sm"
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            />
+            <Button size="sm" onClick={handleCreate} disabled={creating || !sceneNumber.trim()} className="h-9">
+              {creating ? "..." : "Add"}
+            </Button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMode("buttons")}
+            className="mt-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {mode === "pick" && availableScenes.length > 0 && (
+        <div className="mx-auto max-w-md text-left">
+          <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border/50">
+            {availableScenes.map((scene) => (
+              <label
+                key={scene.id}
+                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(scene.id)}
+                  onChange={() => toggle(scene.id)}
+                  className="rounded border-input"
+                />
+                <span className="font-mono text-xs font-semibold">{scene.sceneNumber}</span>
+                {scene.title && (
+                  <span className="text-muted-foreground truncate">{scene.title}</span>
+                )}
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            {selected.size > 0 && (
+              <Button size="sm" onClick={handleAssign} disabled={assigning}>
+                {assigning ? "Adding..." : `Add ${selected.size} scene${selected.size !== 1 ? "s" : ""}`}
+              </Button>
             )}
-          </label>
-        ))}
-      </div>
-      {selected.size > 0 && (
-        <Button
-          size="sm"
-          onClick={handleAssign}
-          disabled={assigning}
-          className="mt-3"
-        >
-          {assigning ? "Adding..." : `Add ${selected.size} scene${selected.size !== 1 ? "s" : ""}`}
-        </Button>
+            <button
+              type="button"
+              onClick={() => setMode("buttons")}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
