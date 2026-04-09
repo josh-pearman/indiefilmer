@@ -15,6 +15,7 @@ import {
   uploadShotImage,
   removeShotImage
 } from "@/actions/scenes";
+import { assignScenesToDay } from "@/actions/schedule";
 import { ShotlistGenerateDialog } from "@/components/schedule/shotlist-generate-dialog";
 import { exportShotlistCSV, exportShotlistPrint } from "@/lib/shotlist-export";
 import { SHOTLIST_PROFILES } from "@/lib/shotlist-profiles";
@@ -198,6 +199,12 @@ function getNextShotNumber(shots: ShotData[]): string {
 
 // ─── Props ──────────────────────────────────────────────
 
+type AvailableScene = {
+  id: string;
+  sceneNumber: string;
+  title: string | null;
+};
+
 type ShotListPageClientProps = {
   shootDayId: string;
   dayNumber: number;
@@ -205,6 +212,7 @@ type ShotListPageClientProps = {
   locationName: string | null;
   backHref: string;
   scenes: SceneInfo[];
+  availableScenes: AvailableScene[];
   shotsByScene: SceneShotGroup[];
   shotlistSceneContext: ShotlistSceneContext[];
   sceneNumberToId: Record<string, string>;
@@ -219,6 +227,7 @@ export function ShotListPageClient({
   locationName,
   backHref,
   scenes,
+  availableScenes,
   shotsByScene: serverShotsByScene,
   shotlistSceneContext,
   sceneNumberToId,
@@ -1026,8 +1035,17 @@ export function ShotListPageClient({
             })}
 
             {localShots.length === 0 && (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                No scenes assigned to this shoot day.
+              <div className="py-12 text-center">
+                <p className="text-sm text-muted-foreground mb-4">
+                  No scenes assigned to this shoot day.
+                </p>
+                {availableScenes.length > 0 && (
+                  <AddScenesPanel
+                    shootDayId={shootDayId}
+                    availableScenes={availableScenes}
+                    existingSceneIds={scenes.map((s) => s.id)}
+                  />
+                )}
               </div>
             )}
           </DragDropContext>
@@ -1087,6 +1105,75 @@ export function ShotListPageClient({
           sceneNumberToId={sceneNumberToId}
           hasExistingShots={totalShotCount > 0}
         />
+      )}
+    </div>
+  );
+}
+
+// ─── Add Scenes Panel ─────────────────────────────────────
+
+function AddScenesPanel({
+  shootDayId,
+  availableScenes,
+  existingSceneIds
+}: {
+  shootDayId: string;
+  availableScenes: AvailableScene[];
+  existingSceneIds: string[];
+}) {
+  const router = useRouter();
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [assigning, setAssigning] = React.useState(false);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleAssign = async () => {
+    if (selected.size === 0) return;
+    setAssigning(true);
+    const allSceneIds = [...existingSceneIds, ...selected];
+    await assignScenesToDay(shootDayId, allSceneIds);
+    setAssigning(false);
+    router.refresh();
+  };
+
+  return (
+    <div className="mx-auto max-w-md text-left">
+      <p className="text-sm font-medium mb-2">Add scenes to this shoot day:</p>
+      <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border/50">
+        {availableScenes.map((scene) => (
+          <label
+            key={scene.id}
+            className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(scene.id)}
+              onChange={() => toggle(scene.id)}
+              className="rounded border-input"
+            />
+            <span className="font-mono text-xs font-semibold">{scene.sceneNumber}</span>
+            {scene.title && (
+              <span className="text-muted-foreground truncate">{scene.title}</span>
+            )}
+          </label>
+        ))}
+      </div>
+      {selected.size > 0 && (
+        <Button
+          size="sm"
+          onClick={handleAssign}
+          disabled={assigning}
+          className="mt-3"
+        >
+          {assigning ? "Adding..." : `Add ${selected.size} scene${selected.size !== 1 ? "s" : ""}`}
+        </Button>
       )}
     </div>
   );

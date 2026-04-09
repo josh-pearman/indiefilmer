@@ -59,6 +59,17 @@ export default async function ShotListPage({
     .filter((s) => !s.scene.isDeleted)
     .map((s) => s.scene);
 
+  // All project scenes (for adding scenes to the shoot day)
+  const allProjectScenes = await prisma.scene.findMany({
+    where: { projectId, isDeleted: false },
+    select: { id: true, sceneNumber: true, title: true },
+    orderBy: { sceneNumber: "asc" }
+  });
+  const assignedSceneIds = new Set(scenes.map((s) => s.id));
+  const availableScenes = allProjectScenes
+    .filter((s) => !assignedSceneIds.has(s.id))
+    .map((s) => ({ id: s.id, sceneNumber: s.sceneNumber, title: s.title }));
+
   // Build scene context for prompt generation
   const fullScenes = scenes.length > 0
     ? await prisma.scene.findMany({
@@ -121,6 +132,7 @@ export default async function ShotListPage({
       locationName={shootDay.location?.name ?? null}
       backHref={`/production/schedule/${id}`}
       scenes={scenes}
+      availableScenes={availableScenes}
       shotsByScene={shotsByScene}
       shotlistSceneContext={shotlistSceneContext}
       sceneNumberToId={sceneNumberToId}
