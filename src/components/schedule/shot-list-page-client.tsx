@@ -519,21 +519,26 @@ export function ShotListPageClient({
   // ─── Image upload ───────────────────────────────────
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [uploadingShotId, setUploadingShotId] = React.useState<string | null>(null);
+  const uploadingShotIdRef = React.useRef<string | null>(null);
 
   const handleImageClick = (shotId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // don't trigger row edit
-    setUploadingShotId(shotId);
+    e.stopPropagation();
+    uploadingShotIdRef.current = shotId;
     fileInputRef.current?.click();
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadingShotId) return;
+    const shotId = uploadingShotIdRef.current;
+    if (!file || !shotId) return;
+    uploadingShotIdRef.current = null;
     const fd = new FormData();
     fd.append("file", file);
-    await uploadShotImage(uploadingShotId, fd);
-    setUploadingShotId(null);
+    const result = await uploadShotImage(shotId, fd);
+    if (result.error) {
+      console.error("Shot image upload failed:", result.error);
+      setError(result.error);
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
     router.refresh();
   };
