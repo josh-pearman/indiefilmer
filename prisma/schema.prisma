@@ -237,13 +237,16 @@ model Shot {
   sceneId         String
   scene           Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
   shotNumber      String                         // "1A", "1B", "2", etc.
-  shotSize        String?                        // WS, MS, MCU, CU, ECU, OTS, POV, AERIAL
+  shotSize        String?                        // EWS, WS, FS, MWS, MS, MCU, CU, ECU
+  shotType        String?                        // master, establishing, single, two-shot, OTS, POV, insert, etc.
   cameraAngle     String?                        // eye-level, low, high, dutch, bird's-eye, worm's-eye
-  cameraMovement  String?                        // static, pan, tilt, dolly, tracking, handheld, steadicam, crane
+  cameraMovement  String?                        // static, pan, tilt, dolly, tracking, handheld, steadicam, crane, etc.
   lens            String?                        // "50mm", "wide", "telephoto", etc.
+  equipment       String?                        // tripod, dolly, slider, steadicam rig, crane, drone, etc.
   description     String                         // what we see / action in the shot
   subjectOrFocus  String?                        // who or what is the focus
   notes           String?                        // setup notes, special requirements
+  storyboardPath  String?                        // uploaded or AI-generated storyboard frame
   sortOrder       Int      @default(0)
   isDeleted       Boolean  @default(false)
   createdAt       DateTime @default(now())

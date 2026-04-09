@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { AppShell } from "@/components/layout/app-shell";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
@@ -151,20 +150,17 @@ export default async function RootLayout({
             </div>
           </main>
         ) : showChrome ? (
-          <div className="flex min-h-screen">
-            <Sidebar
+          <>
+            <AppShell
               projectName={projectName}
               displayName={displayName}
               projectMember={projectMember}
               isNewProject={sceneCount === 0}
-            />
-            <main className="flex-1 bg-background">
-              <ScrollArea className="h-screen px-4 py-4 md:px-8 md:py-6">
-                {children}
-              </ScrollArea>
-            </main>
+            >
+              {children}
+            </AppShell>
             {isChatEnabled() && <ChatWidget />}
-          </div>
+          </>
         ) : (
           <main className="min-h-screen bg-background">
             {children}

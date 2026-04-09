@@ -390,9 +390,11 @@ export const createShotSchema = z.object({
   sceneId: z.string().min(1, "Scene is required"),
   shotNumber: z.string().min(1, "Shot number is required"),
   shotSize: z.string().optional().or(z.literal("")),
+  shotType: z.string().optional().or(z.literal("")),
   cameraAngle: z.string().optional().or(z.literal("")),
   cameraMovement: z.string().optional().or(z.literal("")),
   lens: z.string().optional().or(z.literal("")),
+  equipment: z.string().optional().or(z.literal("")),
   description: z.string().min(1, "Description is required"),
   subjectOrFocus: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal(""))
@@ -417,6 +419,11 @@ export const importedShotSchema = z.object({
     .optional()
     .nullable()
     .transform((v) => v ?? undefined),
+  shotType: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
   cameraAngle: z
     .string()
     .optional()
@@ -428,6 +435,11 @@ export const importedShotSchema = z.object({
     .nullable()
     .transform((v) => v ?? undefined),
   lens: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => v ?? undefined),
+  equipment: z
     .string()
     .optional()
     .nullable()

@@ -140,12 +140,15 @@ export default async function ShootDayDetailPage({
       id: shot.id,
       shotNumber: shot.shotNumber,
       shotSize: shot.shotSize,
+      shotType: shot.shotType,
       cameraAngle: shot.cameraAngle,
       cameraMovement: shot.cameraMovement,
       lens: shot.lens,
+      equipment: shot.equipment,
       description: shot.description,
       subjectOrFocus: shot.subjectOrFocus,
       notes: shot.notes,
+      storyboardPath: shot.storyboardPath,
       sortOrder: shot.sortOrder
     }))
   }));

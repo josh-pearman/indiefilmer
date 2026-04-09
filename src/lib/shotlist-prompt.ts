@@ -60,10 +60,12 @@ For each scene, generate a list of shots. Each shot should include:
 
 - **sceneNumber** (string): The scene this shot belongs to — must exactly match one of the scene numbers above.
 - **shotNumber** (string): A unique label within the scene (e.g., "1", "2", "3A", "3B"). Use letters for related setups.
-- **shotSize** (string): One of: WS (wide shot), MWS (medium wide), MS (medium shot), MCU (medium close-up), CU (close-up), ECU (extreme close-up), OTS (over-the-shoulder), POV (point of view), AERIAL, INSERT.
-- **cameraAngle** (string, optional): e.g., "eye-level", "low", "high", "dutch", "bird's-eye", "worm's-eye".
-- **cameraMovement** (string, optional): e.g., "static", "pan", "tilt", "dolly", "tracking", "handheld", "steadicam", "crane".
+- **shotSize** (string): Distance from subject. One of: EWS (extreme wide), WS (wide), FS (full shot), MWS (medium wide / cowboy), MS (medium), MCU (medium close-up), CU (close-up), ECU (extreme close-up).
+- **shotType** (string): Framing / composition type. One of: master, establishing, single, clean-single, dirty-single, two-shot, three-shot, group, OTS, clean-OTS, POV, insert, cutaway, reaction, aerial.
+- **cameraAngle** (string, optional): e.g., "eye-level", "low", "high", "dutch", "bird's-eye", "worm's-eye", "overhead", "hip-level", "knee-level", "ground-level".
+- **cameraMovement** (string, optional): e.g., "static", "pan", "tilt", "dolly", "truck", "tracking", "handheld", "steadicam", "crane", "pedestal", "push-in", "pull-out", "arc", "whip-pan", "dolly-zoom".
 - **lens** (string, optional): e.g., "24mm", "35mm", "50mm", "85mm", "wide", "telephoto".
+- **equipment** (string, optional): e.g., "tripod", "dolly", "slider", "steadicam rig", "crane", "jib", "drone", "handheld", "sticks".
 - **description** (string): What the camera sees and what happens in the shot. Be specific — describe the framing, the action, and when the shot starts/ends.
 - **subjectOrFocus** (string, optional): The primary subject or character the camera is focused on.
 - **notes** (string, optional): Setup notes, special requirements, or important details for the crew (e.g., "needs dolly track", "shoot before sunset", "safety mat required").
@@ -82,9 +84,11 @@ The JSON format:
       "sceneNumber": "1",
       "shotNumber": "1",
       "shotSize": "WS",
+      "shotType": "master",
       "cameraAngle": "eye-level",
       "cameraMovement": "static",
       "lens": "24mm",
+      "equipment": "tripod",
       "description": "Wide establishing shot of the kitchen. Sarah enters frame left, crosses to the counter.",
       "subjectOrFocus": "SARAH",
       "notes": "Establish geography for the rest of the scene"
@@ -92,10 +96,12 @@ The JSON format:
     {
       "sceneNumber": "1",
       "shotNumber": "2",
-      "shotSize": "OTS",
+      "shotSize": "MCU",
+      "shotType": "OTS",
       "cameraAngle": "eye-level",
       "cameraMovement": "static",
       "lens": "50mm",
+      "equipment": "tripod",
       "description": "Over Sarah's shoulder onto Mike as he reads the letter. Hold on his reaction.",
       "subjectOrFocus": "MIKE",
       "notes": null

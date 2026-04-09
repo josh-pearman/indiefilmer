@@ -1,11 +1,14 @@
 type ExportShot = {
   shotNumber: string;
   shotSize: string | null;
+  shotType: string | null;
   cameraAngle: string | null;
   cameraMovement: string | null;
   lens: string | null;
+  equipment: string | null;
   description: string;
   subjectOrFocus: string | null;
+  storyboardPath?: string | null;
   notes: string | null;
 };
 
@@ -33,7 +36,7 @@ export function exportShotlistCSV(
 ): void {
   const rows: string[] = [];
   rows.push(
-    "Scene,Shot #,Size,Angle,Movement,Lens,Description,Subject,Notes"
+    "Scene,Shot #,Size,Type,Angle,Movement,Lens,Equipment,Description,Subject,Notes"
   );
 
   for (const group of groups) {
@@ -44,9 +47,11 @@ export function exportShotlistCSV(
           escapeCSV(sceneLabel),
           escapeCSV(shot.shotNumber),
           escapeCSV(shot.shotSize),
+          escapeCSV(shot.shotType),
           escapeCSV(shot.cameraAngle),
           escapeCSV(shot.cameraMovement),
           escapeCSV(shot.lens),
+          escapeCSV(shot.equipment),
           escapeCSV(shot.description),
           escapeCSV(shot.subjectOrFocus),
           escapeCSV(shot.notes)
@@ -85,8 +90,10 @@ export function exportShotlistPrint(
   td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
   td.shot-num { font-family: monospace; font-weight: 600; white-space: nowrap; }
   td.size { white-space: nowrap; }
+  td.type { white-space: nowrap; color: #555; }
   td.movement { white-space: nowrap; color: #555; }
   td.lens { white-space: nowrap; color: #555; }
+  td.equipment { white-space: nowrap; color: #555; }
   td.subject { white-space: nowrap; color: #555; }
   td.notes { color: #555; font-style: italic; }
   .total { text-align: right; font-size: 10px; color: #666; margin-top: 16px; border-top: 1px solid #ccc; padding-top: 6px; }
@@ -107,15 +114,17 @@ export function exportShotlistPrint(
     const meta = [group.scene.intExt, group.scene.dayNight].filter(Boolean).join(" / ");
     html += `<div class="scene-header">Scene ${group.scene.sceneNumber}${group.scene.title ? ` — ${group.scene.title}` : ""} ${meta ? `<span class="scene-meta">${meta}</span>` : ""}</div>\n`;
     html += `<table>
-<thead><tr><th>#</th><th>Size</th><th>Movement</th><th>Lens</th><th>Description</th><th>Subject</th><th>Notes</th></tr></thead>
+<thead><tr><th>#</th><th>Size</th><th>Type</th><th>Movement</th><th>Lens</th><th>Equip</th><th>Description</th><th>Subject</th><th>Notes</th></tr></thead>
 <tbody>\n`;
 
     for (const shot of group.shots) {
       html += `<tr>
 <td class="shot-num">${esc(shot.shotNumber)}</td>
 <td class="size">${esc(shot.shotSize)}</td>
+<td class="type">${esc(shot.shotType)}</td>
 <td class="movement">${esc(shot.cameraMovement)}</td>
 <td class="lens">${esc(shot.lens)}</td>
+<td class="equipment">${esc(shot.equipment)}</td>
 <td>${esc(shot.description)}</td>
 <td class="subject">${esc(shot.subjectOrFocus)}</td>
 <td class="notes">${esc(shot.notes)}</td>

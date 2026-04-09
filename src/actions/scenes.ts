@@ -814,9 +814,11 @@ export async function importShots(
             sceneId,
             shotNumber: shot.shotNumber,
             shotSize: shot.shotSize ?? null,
+            shotType: shot.shotType ?? null,
             cameraAngle: shot.cameraAngle ?? null,
             cameraMovement: shot.cameraMovement ?? null,
             lens: shot.lens ?? null,
+            equipment: shot.equipment ?? null,
             description: shot.description,
             subjectOrFocus: shot.subjectOrFocus ?? null,
             notes: shot.notes ?? null,
@@ -936,9 +938,11 @@ export async function createShot(data: {
   sceneId: string;
   shotNumber: string;
   shotSize?: string;
+  shotType?: string;
   cameraAngle?: string;
   cameraMovement?: string;
   lens?: string;
+  equipment?: string;
   description: string;
   subjectOrFocus?: string;
   notes?: string;
@@ -967,9 +971,11 @@ export async function createShot(data: {
       sceneId: data.sceneId,
       shotNumber: data.shotNumber,
       shotSize: data.shotSize || null,
+      shotType: data.shotType || null,
       cameraAngle: data.cameraAngle || null,
       cameraMovement: data.cameraMovement || null,
       lens: data.lens || null,
+      equipment: data.equipment || null,
       description: data.description,
       subjectOrFocus: data.subjectOrFocus || null,
       notes: data.notes || null,
@@ -985,9 +991,11 @@ export async function updateShot(data: {
   id: string;
   shotNumber?: string;
   shotSize?: string;
+  shotType?: string;
   cameraAngle?: string;
   cameraMovement?: string;
   lens?: string;
+  equipment?: string;
   description?: string;
   subjectOrFocus?: string;
   notes?: string;
@@ -1011,9 +1019,11 @@ export async function updateShot(data: {
     data: {
       ...(data.shotNumber !== undefined && { shotNumber: data.shotNumber }),
       ...(data.shotSize !== undefined && { shotSize: data.shotSize || null }),
+      ...(data.shotType !== undefined && { shotType: data.shotType || null }),
       ...(data.cameraAngle !== undefined && { cameraAngle: data.cameraAngle || null }),
       ...(data.cameraMovement !== undefined && { cameraMovement: data.cameraMovement || null }),
       ...(data.lens !== undefined && { lens: data.lens || null }),
+      ...(data.equipment !== undefined && { equipment: data.equipment || null }),
       ...(data.description !== undefined && { description: data.description }),
       ...(data.subjectOrFocus !== undefined && { subjectOrFocus: data.subjectOrFocus || null }),
       ...(data.notes !== undefined && { notes: data.notes || null })
@@ -1063,6 +1073,87 @@ export async function reorderShots(
       })
     )
   );
+
+  revalidatePath("/production/schedule");
+  return {};
+}
+
+// ─── Shot storyboard image ──────────────────────────────────
+
+function getShotImagesDir(projectId: string): string {
+  return path.join(process.cwd(), "data/uploads", projectId, "shot-images");
+}
+
+export async function uploadShotImage(
+  shotId: string,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const shot = await prisma.shot.findFirst({
+    where: { id: shotId, isDeleted: false },
+    include: { scene: { select: { projectId: true } } }
+  });
+  if (!shot || shot.scene.projectId !== projectId) return { error: "Shot not found" };
+
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) return { error: "No file provided" };
+
+  const typeValidation = validateFileType(file, "images");
+  if (!typeValidation.valid) return { error: typeValidation.error };
+
+  const sizeValidation = validateFileSize(file, "images");
+  if (!sizeValidation.valid) return { error: sizeValidation.error };
+
+  const quotaCheck = await checkStorageQuota(projectId, file.size);
+  if (!quotaCheck.allowed) return { error: quotaCheck.error };
+
+  const dir = getShotImagesDir(projectId);
+  await mkdir(dir, { recursive: true });
+
+  const ext = path.extname(file.name || ".jpg").toLowerCase();
+  const filename = `${shotId}${ext}`;
+  const filePath = path.join(dir, filename);
+
+  // Remove old image if exists
+  if (shot.storyboardPath) {
+    try {
+      await unlink(path.join(dir, shot.storyboardPath));
+    } catch { /* ignore if missing */ }
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await writeFile(filePath, buffer);
+
+  await prisma.shot.update({
+    where: { id: shotId },
+    data: { storyboardPath: filename }
+  });
+
+  revalidatePath("/production/schedule");
+  return {};
+}
+
+export async function removeShotImage(shotId: string): Promise<ActionResult> {
+  await requireSectionAccess("scenes");
+  const projectId = await requireCurrentProjectId();
+
+  const shot = await prisma.shot.findFirst({
+    where: { id: shotId, isDeleted: false },
+    include: { scene: { select: { projectId: true } } }
+  });
+  if (!shot || shot.scene.projectId !== projectId) return { error: "Shot not found" };
+  if (!shot.storyboardPath) return { error: "No image attached" };
+
+  try {
+    await unlink(path.join(getShotImagesDir(projectId), shot.storyboardPath));
+  } catch { /* continue even if file missing */ }
+
+  await prisma.shot.update({
+    where: { id: shotId },
+    data: { storyboardPath: null }
+  });
 
   revalidatePath("/production/schedule");
   return {};

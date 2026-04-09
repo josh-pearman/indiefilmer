@@ -23,12 +23,15 @@ type ShotData = {
   id: string;
   shotNumber: string;
   shotSize: string | null;
+  shotType: string | null;
   cameraAngle: string | null;
   cameraMovement: string | null;
   lens: string | null;
+  equipment: string | null;
   description: string;
   subjectOrFocus: string | null;
   notes: string | null;
+  storyboardPath: string | null;
   sortOrder: number;
 };
 
@@ -43,8 +46,17 @@ type SceneShotGroup = {
   shots: ShotData[];
 };
 
-const SHOT_SIZES = ["WS", "MWS", "MS", "MCU", "CU", "ECU", "OTS", "POV", "AERIAL", "INSERT", ""];
-const MOVEMENTS = ["static", "pan", "tilt", "dolly", "tracking", "handheld", "steadicam", "crane", ""];
+const SHOT_SIZES = ["EWS", "WS", "FS", "MWS", "MS", "MCU", "CU", "ECU"];
+const SHOT_TYPES = [
+  "master", "establishing", "single", "clean-single", "dirty-single",
+  "two-shot", "three-shot", "group", "OTS", "clean-OTS", "POV",
+  "insert", "cutaway", "reaction", "aerial"
+];
+const MOVEMENTS = [
+  "static", "pan", "tilt", "dolly", "truck", "tracking", "handheld",
+  "steadicam", "crane", "pedestal", "push-in", "pull-out", "arc",
+  "whip-pan", "dolly-zoom"
+];
 
 type ShotlistEditorDialogProps = {
   open: boolean;
@@ -58,9 +70,11 @@ type EditingShot = {
   sceneId: string;
   shotNumber: string;
   shotSize: string;
+  shotType: string;
   cameraAngle: string;
   cameraMovement: string;
   lens: string;
+  equipment: string;
   description: string;
   subjectOrFocus: string;
   notes: string;
@@ -71,9 +85,11 @@ const emptyShot = (sceneId: string, nextNumber: string): EditingShot => ({
   sceneId,
   shotNumber: nextNumber,
   shotSize: "",
+  shotType: "",
   cameraAngle: "",
   cameraMovement: "",
   lens: "",
+  equipment: "",
   description: "",
   subjectOrFocus: "",
   notes: ""
@@ -102,7 +118,6 @@ export function ShotlistEditorDialog({
   const [collapsedScenes, setCollapsedScenes] = React.useState<Set<string>>(new Set());
   const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Reset state when dialog closes
   React.useEffect(() => {
     if (!open) {
       setExpandedShotId(null);
@@ -112,7 +127,6 @@ export function ShotlistEditorDialog({
     }
   }, [open]);
 
-  // Focus description field when adding new shot
   React.useEffect(() => {
     if (addingForScene && descriptionRef.current) {
       descriptionRef.current.focus();
@@ -130,7 +144,6 @@ export function ShotlistEditorDialog({
 
   const handleExpandShot = (shot: ShotData, sceneId: string) => {
     if (expandedShotId === shot.id) {
-      // Collapse if clicking the same shot
       setExpandedShotId(null);
       setEditing(null);
       setError(null);
@@ -144,9 +157,11 @@ export function ShotlistEditorDialog({
       sceneId,
       shotNumber: shot.shotNumber,
       shotSize: shot.shotSize ?? "",
+      shotType: shot.shotType ?? "",
       cameraAngle: shot.cameraAngle ?? "",
       cameraMovement: shot.cameraMovement ?? "",
       lens: shot.lens ?? "",
+      equipment: shot.equipment ?? "",
       description: shot.description,
       subjectOrFocus: shot.subjectOrFocus ?? "",
       notes: shot.notes ?? ""
@@ -178,9 +193,11 @@ export function ShotlistEditorDialog({
         id: editing.id,
         shotNumber: editing.shotNumber,
         shotSize: editing.shotSize,
+        shotType: editing.shotType,
         cameraAngle: editing.cameraAngle,
         cameraMovement: editing.cameraMovement,
         lens: editing.lens,
+        equipment: editing.equipment,
         description: editing.description,
         subjectOrFocus: editing.subjectOrFocus,
         notes: editing.notes
@@ -195,9 +212,11 @@ export function ShotlistEditorDialog({
         sceneId: editing.sceneId,
         shotNumber: editing.shotNumber,
         shotSize: editing.shotSize,
+        shotType: editing.shotType,
         cameraAngle: editing.cameraAngle,
         cameraMovement: editing.cameraMovement,
         lens: editing.lens,
+        equipment: editing.equipment,
         description: editing.description,
         subjectOrFocus: editing.subjectOrFocus,
         notes: editing.notes
@@ -257,12 +276,10 @@ export function ShotlistEditorDialog({
 
   const totalShots = shotsByScene.reduce((sum, g) => sum + g.shots.length, 0);
 
-  /** Inline edit form rendered inside an expanded shot row or for new shots */
   const renderEditForm = () => {
     if (!editing) return null;
     return (
       <div className="space-y-3 px-1 py-3">
-        {/* Row 1: Shot # + Description (the essentials) */}
         <div className="flex gap-2">
           <div className="w-20 shrink-0 space-y-1">
             <Label htmlFor="edit-shotNumber" className="text-xs">Shot #</Label>
@@ -288,8 +305,7 @@ export function ShotlistEditorDialog({
           </div>
         </div>
 
-        {/* Row 2: Size + Movement + Subject (quick metadata) */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="edit-shotSize" className="text-xs">Size</Label>
             <select
@@ -299,8 +315,22 @@ export function ShotlistEditorDialog({
               className="flex h-10 w-full rounded-md border border-input bg-transparent px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">--</option>
-              {SHOT_SIZES.filter(Boolean).map((s) => (
+              {SHOT_SIZES.map((s) => (
                 <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-shotType" className="text-xs">Type</Label>
+            <select
+              id="edit-shotType"
+              value={editing.shotType}
+              onChange={(e) => setEditing({ ...editing, shotType: e.target.value })}
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">--</option>
+              {SHOT_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
@@ -313,7 +343,7 @@ export function ShotlistEditorDialog({
               className="flex h-10 w-full rounded-md border border-input bg-transparent px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">--</option>
-              {MOVEMENTS.filter(Boolean).map((m) => (
+              {MOVEMENTS.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
@@ -330,8 +360,7 @@ export function ShotlistEditorDialog({
           </div>
         </div>
 
-        {/* Row 3: Secondary details (collapsible feel — always visible but lower priority) */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="edit-lens" className="text-xs">Lens</Label>
             <Input
@@ -352,7 +381,17 @@ export function ShotlistEditorDialog({
               className="h-10 text-sm"
             />
           </div>
-          <div className="col-span-2 space-y-1 sm:col-span-1">
+          <div className="space-y-1">
+            <Label htmlFor="edit-equipment" className="text-xs">Equipment</Label>
+            <Input
+              id="edit-equipment"
+              value={editing.equipment}
+              onChange={(e) => setEditing({ ...editing, equipment: e.target.value })}
+              placeholder="tripod"
+              className="h-10 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
             <Label htmlFor="edit-notes" className="text-xs">Notes</Label>
             <Input
               id="edit-notes"
@@ -366,7 +405,6 @@ export function ShotlistEditorDialog({
 
         {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
-        {/* Actions: prominent save, subtle cancel */}
         <div className="flex items-center gap-2 pt-1">
           <Button
             type="button"
@@ -409,7 +447,6 @@ export function ShotlistEditorDialog({
             const isCollapsed = collapsedScenes.has(group.scene.id);
             return (
               <div key={group.scene.id} className="mb-3">
-                {/* Scene header */}
                 <button
                   type="button"
                   onClick={() => toggleCollapse(group.scene.id)}
@@ -441,7 +478,6 @@ export function ShotlistEditorDialog({
 
                 {!isCollapsed && (
                   <div className="ml-2 border-l-2 border-border/50 pl-3">
-                    {/* Shot rows */}
                     {group.shots.map((shot, idx) => {
                       const isExpanded = expandedShotId === shot.id;
                       return (
@@ -452,7 +488,6 @@ export function ShotlistEditorDialog({
                               isExpanded && "bg-muted/40 rounded-b-none"
                             )}
                           >
-                            {/* Reorder arrows */}
                             <div className="flex flex-col shrink-0">
                               <button
                                 type="button"
@@ -474,7 +509,6 @@ export function ShotlistEditorDialog({
                               </button>
                             </div>
 
-                            {/* Shot content — tap to expand/edit */}
                             <button
                               type="button"
                               onClick={() => handleExpandShot(shot, group.scene.id)}
@@ -482,7 +516,6 @@ export function ShotlistEditorDialog({
                               aria-expanded={isExpanded}
                               aria-label={`Shot ${shot.shotNumber}, ${shot.description}. Tap to edit.`}
                             >
-                              {/* Shot number + size badge */}
                               <span className="inline-flex items-center gap-1 shrink-0 rounded bg-muted px-2 py-0.5 text-xs font-mono font-semibold">
                                 {shot.shotNumber}
                                 {shot.shotSize && (
@@ -492,14 +525,13 @@ export function ShotlistEditorDialog({
                                 )}
                               </span>
 
-                              {/* Description + metadata */}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm leading-snug line-clamp-2">
                                   {shot.description}
                                 </p>
-                                {(shot.subjectOrFocus || shot.cameraMovement || shot.lens) && (
+                                {(shot.subjectOrFocus || shot.cameraMovement || shot.shotType || shot.lens) && (
                                   <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                                    {[shot.subjectOrFocus, shot.cameraMovement, shot.lens]
+                                    {[shot.subjectOrFocus, shot.shotType, shot.cameraMovement, shot.lens]
                                       .filter(Boolean)
                                       .join(" · ")}
                                   </p>
@@ -507,7 +539,6 @@ export function ShotlistEditorDialog({
                               </div>
                             </button>
 
-                            {/* Delete — visible on hover / always on touch */}
                             <button
                               type="button"
                               onClick={() => handleDelete(shot.id)}
@@ -519,7 +550,6 @@ export function ShotlistEditorDialog({
                             </button>
                           </div>
 
-                          {/* Inline edit form */}
                           {isExpanded && editing && (
                             <div className="rounded-b-md bg-muted/40 px-3 pb-3 border-b border-border/50 mb-1">
                               {renderEditForm()}
@@ -535,14 +565,12 @@ export function ShotlistEditorDialog({
                       </p>
                     )}
 
-                    {/* New shot inline form */}
                     {addingForScene === group.scene.id && editing && (
                       <div className="rounded-md bg-muted/40 px-3 pb-3 mb-1 border border-border/50">
                         {renderEditForm()}
                       </div>
                     )}
 
-                    {/* Add shot button */}
                     <button
                       type="button"
                       onClick={() => handleAdd(group.scene.id, group.shots)}

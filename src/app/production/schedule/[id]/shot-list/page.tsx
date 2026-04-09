@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCurrentProjectId } from "@/lib/project";
 import { localDate } from "@/lib/utils";
@@ -96,12 +95,15 @@ export default async function ShotListPage({
       id: shot.id,
       shotNumber: shot.shotNumber,
       shotSize: shot.shotSize,
+      shotType: shot.shotType,
       cameraAngle: shot.cameraAngle,
       cameraMovement: shot.cameraMovement,
       lens: shot.lens,
+      equipment: shot.equipment,
       description: shot.description,
       subjectOrFocus: shot.subjectOrFocus,
       notes: shot.notes,
+      storyboardPath: shot.storyboardPath,
       sortOrder: shot.sortOrder
     }))
   }));
@@ -112,37 +114,18 @@ export default async function ShotListPage({
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href={`/production/schedule/${id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Back to Day {dayNumber}
-          </Link>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight">
-            Shot List — Day {dayNumber}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {dateStr}
-            {shootDay.location?.name ? ` · ${shootDay.location.name}` : ""}
-            {` · ${scenes.length} scene${scenes.length !== 1 ? "s" : ""}`}
-            {` · ${totalShotCount} shot${totalShotCount !== 1 ? "s" : ""}`}
-          </p>
-        </div>
-      </div>
-
-      <ShotListPageClient
-        shootDayId={id}
-        dayNumber={dayNumber}
-        scenes={scenes}
-        shotsByScene={shotsByScene}
-        shotlistSceneContext={shotlistSceneContext}
-        sceneNumberToId={sceneNumberToId}
-        totalShotCount={totalShotCount}
-        generationMode={getShotlistGenerationMode()}
-      />
-    </div>
+    <ShotListPageClient
+      shootDayId={id}
+      dayNumber={dayNumber}
+      dateStr={dateStr}
+      locationName={shootDay.location?.name ?? null}
+      backHref={`/production/schedule/${id}`}
+      scenes={scenes}
+      shotsByScene={shotsByScene}
+      shotlistSceneContext={shotlistSceneContext}
+      sceneNumberToId={sceneNumberToId}
+      totalShotCount={totalShotCount}
+      generationMode={getShotlistGenerationMode()}
+    />
   );
 }

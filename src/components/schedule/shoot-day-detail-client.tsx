@@ -36,12 +36,15 @@ type ShotData = {
   id: string;
   shotNumber: string;
   shotSize: string | null;
+  shotType: string | null;
   cameraAngle: string | null;
   cameraMovement: string | null;
   lens: string | null;
+  equipment: string | null;
   description: string;
   subjectOrFocus: string | null;
   notes: string | null;
+  storyboardPath: string | null;
   sortOrder: number;
 };
 
